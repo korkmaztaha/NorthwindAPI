@@ -15,6 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\Core\NorthwindApi.Application\NorthwindApi.Application.csproj" />
     <ProjectReference Include="..\..\Infrastructure\NorthwindApi.Persistence\NorthwindApi.Persistence.csproj" />
   </ItemGroup>
 
