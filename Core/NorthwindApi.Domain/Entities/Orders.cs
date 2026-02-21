@@ -61,7 +61,7 @@ public partial class Orders
 
     [ForeignKey("CustomerId")]
     [InverseProperty("Orders")]
-    public virtual Customers? Customer { get; set; }
+    public virtual Customer? Customer { get; set; }
 
     [ForeignKey("EmployeeId")]
     [InverseProperty("Orders")]

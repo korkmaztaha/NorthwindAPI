@@ -1,0 +1,6 @@
+﻿
+namespace NorthwindApi.Application.Interfaces
+{
+   
+   
+}

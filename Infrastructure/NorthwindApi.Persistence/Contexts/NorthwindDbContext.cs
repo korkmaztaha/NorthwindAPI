@@ -29,7 +29,7 @@ public partial class NorthwindDbContext : DbContext
 
     public virtual DbSet<CustomerDemographics> CustomerDemographics { get; set; }
 
-    public virtual DbSet<Customers> Customers { get; set; }
+    public virtual DbSet<Customer> Customers { get; set; }
 
     public virtual DbSet<Employees> Employees { get; set; }
 
@@ -148,7 +148,7 @@ public partial class NorthwindDbContext : DbContext
             entity.Property(e => e.CustomerDesc).HasColumnType("ntext");
         });
 
-        modelBuilder.Entity<Customers>(entity =>
+        modelBuilder.Entity<Customer>(entity =>
         {
             entity.HasKey(e => e.CustomerId);
 
@@ -182,7 +182,7 @@ public partial class NorthwindDbContext : DbContext
                         .HasForeignKey("CustomerTypeId")
                         .OnDelete(DeleteBehavior.ClientSetNull)
                         .HasConstraintName("FK_CustomerCustomerDemo"),
-                    l => l.HasOne<Customers>().WithMany()
+                    l => l.HasOne<Customer>().WithMany()
                         .HasForeignKey("CustomerId")
                         .OnDelete(DeleteBehavior.ClientSetNull)
                         .HasConstraintName("FK_CustomerCustomerDemo_Customers"),

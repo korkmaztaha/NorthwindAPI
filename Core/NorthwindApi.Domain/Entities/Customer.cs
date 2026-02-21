@@ -10,7 +10,7 @@ namespace NorthwindApi.Domain.Entities;
 [Index("CompanyName", Name = "CompanyName")]
 [Index("PostalCode", Name = "PostalCode")]
 [Index("Region", Name = "Region")]
-public partial class Customers
+public partial class Customer
 {
     [Key]
     [Column("CustomerID")]

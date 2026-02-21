@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Infrastructure\NorthwindApi.Persistence\NorthwindApi.Persistence.csproj" />
+    <ProjectReference Include="..\NorthwindApi.Domain\NorthwindApi.Domain.csproj" />
   </ItemGroup>
 
 </Project>
