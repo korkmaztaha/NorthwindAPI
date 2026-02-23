@@ -1,6 +1,7 @@
 ﻿
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using NorthwindApi.Application.Interfaces;
 using NorthwindApi.Application.Interfaces.Repositories;
 using NorthwindApi.Domain.Entities;
@@ -11,11 +12,14 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginCommandRes
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly ILogger<LoginCommandHandler> _logger;
 
-    public LoginCommandHandler(IUnitOfWork unitOfWork, IJwtTokenService jwtTokenService)
+    public LoginCommandHandler(IUnitOfWork unitOfWork, IJwtTokenService jwtTokenService, ILogger<LoginCommandHandler> logger)
     {
         _unitOfWork = unitOfWork;
         _jwtTokenService = jwtTokenService;
+        _logger = logger;
+
     }
 
     public async Task<LoginCommandResponse> Handle(
@@ -27,8 +31,12 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginCommandRes
             .FirstOrDefault(x => x.Email == request.Email);
 
         if (user is null || !_jwtTokenService.VerifyPassword(request.Password, user.PasswordHash))
+        {
+            _logger.LogWarning("Giriş başarısız: {Email}", request.Email);
             throw new UnauthorizedAccessException("Geçersiz kullanıcı adı veya şifre");
+        }
 
+        _logger.LogInformation("Başarılı login: {Email}, Role: {Role}", user.Email, user.Role);
         // Access token üret
         var accessToken = _jwtTokenService.GenerateAccessToken(
             user.Id.ToString(), user.Email,user.Role);

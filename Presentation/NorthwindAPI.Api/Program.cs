@@ -3,9 +3,32 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NorthwindApi.Application;
 using NorthwindApi.Persistence;
+using Serilog;
+using Serilog.Sinks.MSSqlServer;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    //.Enrich.WithMachineName()
+    .WriteTo.Console(
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(
+        path: "Logs/log-.txt",
+        rollingInterval: RollingInterval.Day,
+        outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .WriteTo.MSSqlServer(
+        connectionString: builder.Configuration.GetConnectionString("NorthwindConnection"),
+        sinkOptions: new MSSqlServerSinkOptions
+        {
+            TableName = "Logs",
+            AutoCreateSqlTable = true
+        })
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
 
@@ -61,6 +84,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
+app.UseSerilogRequestLogging();
 
 app.UseHttpsRedirection();
 
@@ -70,5 +94,20 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+
+try
+{
+    Log.Information("Uygulama baþlatýlýyor...");
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Uygulama baþlatýlamadý!");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
 
 app.Run();
