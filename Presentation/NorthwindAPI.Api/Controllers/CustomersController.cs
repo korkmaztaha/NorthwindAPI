@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NorthwindApi.Application.Features.Customers.Queries.GetCustomers;
+using NorthwindApi.Domain.Constants;
 
 namespace NorthwindAPI.Api.Controllers;
 
@@ -18,6 +19,7 @@ public class CustomersController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> Get()
     {
         var result = await _mediator.Send(new GetCustomersQuery());

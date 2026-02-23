@@ -55,7 +55,7 @@ namespace NorthwindApi.Application.Features.Auth.Commands.RefreshToken
 
             // Yeni tokenları üret
             var newAccessToken = _jwtTokenService.GenerateAccessToken(
-                user.Id.ToString(), user.Email);
+                user.Id.ToString(), user.Email,user.Role);
             var newRefreshToken = _jwtTokenService.GenerateRefreshToken();
 
             // Yeni refresh token'ı DB'ye kaydet

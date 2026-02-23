@@ -31,7 +31,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, LoginCommandRes
 
         // Access token üret
         var accessToken = _jwtTokenService.GenerateAccessToken(
-            user.Id.ToString(), user.Email);
+            user.Id.ToString(), user.Email,user.Role);
 
         // Refresh token üret
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
