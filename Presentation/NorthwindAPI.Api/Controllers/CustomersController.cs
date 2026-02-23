@@ -1,9 +1,11 @@
 ﻿using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NorthwindApi.Application.Features.Customers.Queries.GetCustomers;
 
 namespace NorthwindAPI.Api.Controllers;
 
+[Authorize] 
 [Route("api/[controller]")]
 [ApiController]
 public class CustomersController : ControllerBase

@@ -71,7 +71,10 @@ public partial class NorthwindDbContext : DbContext
 
     public virtual DbSet<Territories> Territories { get; set; }
 
-  
+    public DbSet<User> Users { get; set; }
+
+    public DbSet<RefreshTokens> RefreshTokens { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<AlphabeticalListOfProducts>(entity =>
@@ -610,7 +613,19 @@ public partial class NorthwindDbContext : DbContext
                 .HasConstraintName("FK_Territories_Region");
         });
 
+
+        modelBuilder.Entity<RefreshTokens>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Token).HasMaxLength(256);
+            entity.HasOne(e => e.User)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId);
+        });
+
         OnModelCreatingPartial(modelBuilder);
+
+
     }
 
     partial void OnModelCreatingPartial(ModelBuilder modelBuilder);
