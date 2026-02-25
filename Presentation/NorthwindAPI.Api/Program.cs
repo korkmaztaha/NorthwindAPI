@@ -9,11 +9,14 @@ using Serilog.Sinks.MSSqlServer;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+var columnOptions = new ColumnOptions();
+
+
+columnOptions.Store.Remove(StandardColumn.MessageTemplate);
 
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
-    //.Enrich.WithMachineName()
     .WriteTo.Console(
         outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .WriteTo.File(
@@ -26,7 +29,8 @@ Log.Logger = new LoggerConfiguration()
         {
             TableName = "Logs",
             AutoCreateSqlTable = true
-        })
+        },
+        columnOptions: columnOptions) 
     .CreateLogger();
 
 builder.Host.UseSerilog();

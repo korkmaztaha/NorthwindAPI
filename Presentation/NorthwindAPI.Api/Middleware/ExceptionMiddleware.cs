@@ -7,7 +7,7 @@ namespace NorthwindAPI.Api.Middleware;
 public class ExceptionMiddleware
 {
     private readonly RequestDelegate _next;
-    private readonly ILogger<ExceptionMiddleware> _logger; // ← ekle
+    private readonly ILogger<ExceptionMiddleware> _logger; 
 
     public ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddleware> logger)
     {
@@ -23,22 +23,25 @@ public class ExceptionMiddleware
         }
         catch (KeyNotFoundException ex)
         {
-            _logger.LogError(ex, "Kayıt bulunamadı. Path: {Path}", context.Request.Path);
+            _logger.LogError(ex, $"Kayıt bulunamadı. Path: {context.Request.Path.Value}, Mesaj: {ex.Message}");
             await HandleExceptionAsync(context, HttpStatusCode.NotFound, ex.Message);
         }
+
         catch (InvalidOperationException ex)
         {
-            _logger.LogError(ex, "Geçersiz işlem. Path: {Path}", context.Request.Path);
+            _logger.LogError(ex, $"Geçersiz işlem. Path: {context.Request.Path.Value}, Mesaj: {ex.Message}");
             await HandleExceptionAsync(context, HttpStatusCode.BadRequest, ex.Message);
         }
+
         catch (UnauthorizedAccessException ex)
         {
-            _logger.LogError(ex, "Yetkisiz erişim. Path: {Path}", context.Request.Path);
+            _logger.LogError(ex, $"Yetkisiz erişim. Path: {context.Request.Path.Value}, Mesaj: {ex.Message}");
             await HandleExceptionAsync(context, HttpStatusCode.Unauthorized, ex.Message);
         }
+
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Beklenmeyen hata. Path: {Path}", context.Request.Path);
+            _logger.LogError(ex, $"Beklenmeyen hata. Path: {context.Request.Path.Value}, Mesaj: {ex.Message}");
             await HandleExceptionAsync(context, HttpStatusCode.InternalServerError, "Beklenmeyen bir hata oluştu.");
         }
     }
