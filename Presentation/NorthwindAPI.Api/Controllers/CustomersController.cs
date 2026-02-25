@@ -6,7 +6,7 @@ using NorthwindApi.Domain.Constants;
 
 namespace NorthwindAPI.Api.Controllers;
 
-[Authorize] 
+//[Authorize] 
 [Route("api/[controller]")]
 [ApiController]
 public class CustomersController : ControllerBase
@@ -19,11 +19,13 @@ public class CustomersController : ControllerBase
     }
 
     [HttpGet]
-    [Authorize(Roles = Roles.Admin)]
-    public async Task<IActionResult> Get()
+    //[Authorize(Roles = Roles.Admin)]
+    [HttpGet]
+    public async Task<IActionResult> GetAll(
+    [FromQuery] GetCustomersQuery query,
+    CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new GetCustomersQuery());
-
+        var result = await _mediator.Send(query, cancellationToken);
         return Ok(result);
     }
 }
