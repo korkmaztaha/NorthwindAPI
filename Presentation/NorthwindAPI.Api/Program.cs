@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NorthwindApi.Application;
 using NorthwindApi.Persistence;
+using NorthwindAPI.Api.Middleware;
 using Serilog;
 using Serilog.Sinks.MSSqlServer;
 using System.Text;
@@ -82,6 +83,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 var app = builder.Build();
+app.UseMiddleware<ExceptionMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseSerilogRequestLogging();
