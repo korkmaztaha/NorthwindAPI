@@ -1,6 +1,7 @@
-﻿using NorthwindApi.Application.Interfaces;
+﻿using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Application.Interfaces.Repositories;
 using NorthwindApi.Persistence.Contexts;
+using NorthwindApi.Persistence.Repositories;
 using System;
 using System.Collections.Generic;
 using System.Linq;

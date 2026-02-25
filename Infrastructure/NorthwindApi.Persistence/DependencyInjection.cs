@@ -1,10 +1,13 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Application.Interfaces.Repositories;
-using NorthwindApi.Application.Interfaces;
+using NorthwindApi.Application.Interfaces.Services;
 using NorthwindApi.Persistence.Contexts;
+using NorthwindApi.Persistence.Repositories;
 using NorthwindApi.Persistence.Services;
+using NorthwindApi.Persistence.Services.EntityServices;
 
 namespace NorthwindApi.Persistence;
 
@@ -29,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<ICacheService, CacheService>();
+        services.AddScoped<ICustomerService, CustomerService>();
 
         return services;
     }

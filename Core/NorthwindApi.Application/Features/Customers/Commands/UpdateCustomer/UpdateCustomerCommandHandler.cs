@@ -1,47 +1,22 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
-using NorthwindApi.Application.Interfaces;
+using NorthwindApi.Application.Interfaces.Infrastructure;
+using NorthwindApi.Application.Interfaces.Services;
 using NorthwindApi.Domain.Entities;
 
 namespace NorthwindApi.Application.Features.Customers.Commands.UpdateCustomer;
 
 public class UpdateCustomerCommandHandler : IRequestHandler<UpdateCustomerCommand, UpdateCustomerCommandResponse>
 {
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly ICustomerService _customerService;
 
-    public UpdateCustomerCommandHandler(IUnitOfWork unitOfWork)
+    public UpdateCustomerCommandHandler(ICustomerService customerService)
     {
-        _unitOfWork = unitOfWork;
+        _customerService = customerService;
     }
 
     public async Task<UpdateCustomerCommandResponse> Handle(
         UpdateCustomerCommand request,
         CancellationToken cancellationToken)
-    {
-        var customer = await _unitOfWork.Repository<Customer>()
-            .GetAll()
-            .FirstOrDefaultAsync(x => x.CustomerId == request.CustomerId, cancellationToken);
-
-        if (customer is null)
-            throw new KeyNotFoundException($"{request.CustomerId} ID'li müşteri bulunamadı.");
-
-        customer.CompanyName = request.CompanyName;
-        customer.ContactName = request.ContactName;
-        customer.ContactTitle = request.ContactTitle;
-        customer.Address = request.Address;
-        customer.City = request.City;
-        customer.Country = request.Country;
-        customer.Phone = request.Phone;
-        customer.Fax = request.Fax;
-
-        _unitOfWork.Repository<Customer>().Update(customer);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return new UpdateCustomerCommandResponse
-        {
-            CustomerId = customer.CustomerId,
-            CompanyName = customer.CompanyName,
-            UpdatedAt = DateTime.UtcNow
-        };
-    }
+        => await _customerService.UpdateAsync(request, cancellationToken);
 }

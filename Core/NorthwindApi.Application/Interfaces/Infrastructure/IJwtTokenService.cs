@@ -1,7 +1,6 @@
-﻿
-using System.Data;
+﻿using System.Data;
 
-namespace NorthwindApi.Application.Interfaces;
+namespace NorthwindApi.Application.Interfaces.Infrastructure;
 public interface IJwtTokenService
 {
     string GenerateAccessToken(string userId, string email,string role);

@@ -1,5 +1,5 @@
 ﻿using Microsoft.Extensions.Caching.Distributed;
-using NorthwindApi.Application.Interfaces;
+using NorthwindApi.Application.Interfaces.Infrastructure;
 using System.Text.Json;
 
 namespace NorthwindApi.Persistence.Services;

@@ -1,33 +1,22 @@
 ﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
-using NorthwindApi.Application.Interfaces;
+using NorthwindApi.Application.Interfaces.Infrastructure;
+using NorthwindApi.Application.Interfaces.Services;
 using NorthwindApi.Domain.Entities;
 
 namespace NorthwindApi.Application.Features.Customers.Commands.DeleteCustomer;
 
 public class DeleteCustomerCommandHandler : IRequestHandler<DeleteCustomerCommand, bool>
 {
-    private readonly IUnitOfWork _unitOfWork;
+    private readonly ICustomerService _customerService;
 
-    public DeleteCustomerCommandHandler(IUnitOfWork unitOfWork)
+    public DeleteCustomerCommandHandler(ICustomerService customerService)
     {
-        _unitOfWork = unitOfWork;
+        _customerService = customerService;
     }
 
     public async Task<bool> Handle(
         DeleteCustomerCommand request,
         CancellationToken cancellationToken)
-    {
-        var customer = await _unitOfWork.Repository<Customer>()
-            .GetAll()
-            .FirstOrDefaultAsync(x => x.CustomerId == request.CustomerId, cancellationToken);
-
-        if (customer is null)
-            throw new KeyNotFoundException($"{request.CustomerId} ID'li müşteri bulunamadı.");
-
-        _unitOfWork.Repository<Customer>().Delete(customer);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return true;
-    }
+        => await _customerService.DeleteAsync(request.CustomerId, cancellationToken);
 }

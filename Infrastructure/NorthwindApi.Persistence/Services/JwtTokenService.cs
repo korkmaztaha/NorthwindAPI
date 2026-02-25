@@ -1,7 +1,7 @@
 ﻿// NorthwindApi.Persistence/Services/JwtTokenService.cs
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using NorthwindApi.Application.Interfaces;
+using NorthwindApi.Application.Interfaces.Infrastructure;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;

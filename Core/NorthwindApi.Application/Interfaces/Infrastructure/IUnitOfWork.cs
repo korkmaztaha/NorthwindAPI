@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace NorthwindApi.Application.Interfaces
+namespace NorthwindApi.Application.Interfaces.Infrastructure
 {
     public interface IUnitOfWork : IDisposable
     {

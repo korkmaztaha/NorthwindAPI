@@ -1,5 +1,5 @@
 ﻿using MediatR;
-using NorthwindApi.Application.Interfaces;
+using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Domain.Entities;
 using System;
 using System.Collections.Generic;
