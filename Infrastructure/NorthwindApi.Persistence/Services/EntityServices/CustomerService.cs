@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using NorthwindApi.Application.Features.Customers.Commands.CreateCustomer;
 using NorthwindApi.Application.Features.Customers.Commands.UpdateCustomer;
+using NorthwindApi.Application.Features.Customers.Queries.GetCustomerOrderSummary;
 using NorthwindApi.Application.Features.Customers.Queries.GetCustomers;
 using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Application.Interfaces.Services;
@@ -140,6 +141,48 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return true;
+        }
+
+        public async Task<List<GetCustomerOrderSummaryResponse>> GetOrderSummaryAsync(
+      GetCustomerOrderSummaryQuery request,
+      CancellationToken cancellationToken)
+        {
+            var cutoffDate = request.LastDays.HasValue
+                ? DateTime.UtcNow.AddDays(-request.LastDays.Value)
+                : (DateTime?)null;
+
+            var pageNumber = request.PageNumber < 1 ? 1 : request.PageNumber;
+
+            var query = _unitOfWork.Repository<Customer>()
+                .GetAll()
+                .AsNoTracking()
+                .Select(c => new GetCustomerOrderSummaryResponse
+                {
+                    CustomerId = c.CustomerId,
+                    CompanyName = c.CompanyName,
+                    City = c.City,
+                    Country = c.Country,
+                    TotalSpent = c.Orders
+                        .Where(o => !cutoffDate.HasValue || o.OrderDate >= cutoffDate)
+                        .SelectMany(o => o.OrderDetails)
+                        .Sum(od => od.Quantity * od.UnitPrice * (1 - (decimal)od.Discount)),
+                    OrderCount = c.Orders
+                        .Count(o => !cutoffDate.HasValue || o.OrderDate >= cutoffDate),
+                    LastOrderDate = c.Orders
+                        .OrderByDescending(o => o.OrderDate)
+                        .Select(o => o.OrderDate)
+                        .FirstOrDefault(),
+                    HasOrders = c.Orders.Any()
+                });
+
+            if (request.MinOrderCount.HasValue)
+                query = query.Where(x => x.OrderCount >= request.MinOrderCount.Value);
+
+            return await query
+                .OrderByDescending(x => x.TotalSpent)
+                .Skip((pageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync(cancellationToken);
         }
     }
 }

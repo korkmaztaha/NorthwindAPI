@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using NorthwindApi.Application.Features.Customers.Commands.CreateCustomer;
 using NorthwindApi.Application.Features.Customers.Commands.DeleteCustomer;
 using NorthwindApi.Application.Features.Customers.Commands.UpdateCustomer;
+using NorthwindApi.Application.Features.Customers.Queries.GetCustomerOrderSummary;
 using NorthwindApi.Application.Features.Customers.Queries.GetCustomers;
 using NorthwindApi.Domain.Constants;
 
@@ -59,6 +60,15 @@ public class CustomersController : ControllerBase
     CancellationToken cancellationToken)
     {
         await _mediator.Send(new DeleteCustomerCommand { CustomerId = customerId }, cancellationToken);
-        return NoContent(); // 204
+        return NoContent();
+    }
+
+    [HttpGet("GetCustomerOrderSummary", Name = "GetCustomerOrderSummary")]
+    public async Task<IActionResult> GetCustomerOrderSummary(
+    [FromQuery] GetCustomerOrderSummaryQuery query,
+    CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(query, cancellationToken);
+        return Ok(result);
     }
 }
