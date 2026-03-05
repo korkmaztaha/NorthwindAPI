@@ -14,4 +14,8 @@
     <ProjectReference Include="..\NorthwindApi.Domain\NorthwindApi.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Features\Orders\Commands\" />
+  </ItemGroup>
+
 </Project>
