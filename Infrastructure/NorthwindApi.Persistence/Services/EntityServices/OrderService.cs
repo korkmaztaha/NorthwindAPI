@@ -1,6 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using NorthwindApi.Application.Features.Orders.Commands.CreateOrder;
 using NorthwindApi.Application.Features.Orders.Queries.GetOrderDetail;
 using NorthwindApi.Application.Features.Orders.Queries.GetOrders;
+using NorthwindApi.Application.Interfaces.BusinessRules;
 using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Application.Interfaces.Services;
 using NorthwindApi.Domain.Entities;
@@ -15,10 +17,17 @@ namespace NorthwindApi.Persistence.Services.EntityServices
     public class OrderService : IOrderService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICustomerBusinessRules _customerBusinessRules;
+        private readonly IProductBusinessRules _productBusinessRules;
 
-        public OrderService(IUnitOfWork unitOfWork)
+        public OrderService(
+        IUnitOfWork unitOfWork,
+        ICustomerBusinessRules customerBusinessRules,
+        IProductBusinessRules productBusinessRules)
         {
             _unitOfWork = unitOfWork;
+            _customerBusinessRules = customerBusinessRules;
+            _productBusinessRules = productBusinessRules;
         }
 
         public async Task<List<GetOrdersQueryResponse>> GetAllAsync(
@@ -145,6 +154,87 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 throw new KeyNotFoundException($"{orderId} ID'li sipariş bulunamadı.");
 
             return order;
+        }
+
+        public async Task<CreateOrderCommandResponse> CreateAsync(
+             CreateOrderCommand request,
+             CancellationToken cancellationToken)
+        {
+            await _customerBusinessRules.CustomerMustExistAsync(request.CustomerId, cancellationToken);
+            var products = await _productBusinessRules.GetAndValidateProductsAsync(request.Items, cancellationToken);
+            return await ProcessOrderAsync(request, products, cancellationToken);
+        }
+        private async Task<CreateOrderCommandResponse> ProcessOrderAsync(
+       CreateOrderCommand request,
+       List<Products> products,
+       CancellationToken cancellationToken)
+        {
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                var order = new Orders
+                {
+                    CustomerId = request.CustomerId,
+                    EmployeeId = request.EmployeeId,
+                    OrderDate = DateTime.UtcNow,
+                    RequiredDate = request.RequiredDate,
+                    ShipVia = request.ShipVia,
+                    Freight = request.Freight,
+                    ShipName = request.ShipName,
+                    ShipAddress = request.ShipAddress,
+                    ShipCity = request.ShipCity,
+                    ShipRegion = request.ShipRegion,
+                    ShipPostalCode = request.ShipPostalCode,
+                    ShipCountry = request.ShipCountry
+                };
+
+                await _unitOfWork.Repository<Orders>().AddAsync(order, cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken); // OrderId almak için
+
+                var orderItems = new List<CreateOrderItemResponse>();
+                foreach (var item in request.Items)
+                {
+                    var product = products.First(x => x.ProductId == item.ProductId);
+
+                    await _unitOfWork.Repository<OrderDetails>().AddAsync(new OrderDetails
+                    {
+                        OrderId = order.OrderId,
+                        ProductId = item.ProductId,
+                        UnitPrice = product.UnitPrice ?? 0,
+                        Quantity = item.Quantity,
+                        Discount = item.Discount
+                    }, cancellationToken);
+
+                    product.UnitsInStock -= item.Quantity;
+                    _unitOfWork.Repository<Products>().Update(product);
+
+                    orderItems.Add(new CreateOrderItemResponse
+                    {
+                        ProductId = product.ProductId,
+                        ProductName = product.ProductName,
+                        Quantity = item.Quantity,
+                        UnitPrice = product.UnitPrice ?? 0,
+                        Discount = item.Discount,
+                        LineTotal = (decimal)(item.Quantity * (product.UnitPrice ?? 0) * (decimal)(1 - item.Discount))
+                    });
+                }
+
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+                return new CreateOrderCommandResponse
+                {
+                    OrderId = order.OrderId,
+                    CustomerId = order.CustomerId,
+                    OrderDate = order.OrderDate!.Value,
+                    TotalAmount = orderItems.Sum(x => x.LineTotal),
+                    Items = orderItems
+                };
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                throw;
+            }
         }
     }
 }

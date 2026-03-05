@@ -3,6 +3,7 @@ using NorthwindApi.Application.Features.Customers.Commands.CreateCustomer;
 using NorthwindApi.Application.Features.Customers.Commands.UpdateCustomer;
 using NorthwindApi.Application.Features.Customers.Queries.GetCustomerOrderSummary;
 using NorthwindApi.Application.Features.Customers.Queries.GetCustomers;
+using NorthwindApi.Application.Interfaces.BusinessRules;
 using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Application.Interfaces.Services;
 using NorthwindApi.Domain.Entities;
@@ -17,10 +18,12 @@ namespace NorthwindApi.Persistence.Services.EntityServices
     public class CustomerService : ICustomerService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICustomerBusinessRules _businessRules;
 
-        public CustomerService(IUnitOfWork unitOfWork)
+        public CustomerService(IUnitOfWork unitOfWork, ICustomerBusinessRules businessRules)
         {
             _unitOfWork = unitOfWork;
+            _businessRules = businessRules;
         }
 
         public async Task<List<GetCustomersQueryResponse>> GetAllAsync(

@@ -1,9 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using NorthwindApi.Application.Interfaces.BusinessRules;
 using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Application.Interfaces.Repositories;
 using NorthwindApi.Application.Interfaces.Services;
+using NorthwindApi.Persistence.BusinessRules;
 using NorthwindApi.Persistence.Contexts;
 using NorthwindApi.Persistence.Repositories;
 using NorthwindApi.Persistence.Services;
@@ -35,6 +37,8 @@ public static class DependencyInjection
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<IOrderService, OrderService>();
+        services.AddScoped<ICustomerBusinessRules, CustomerBusinessRules>();
+        services.AddScoped<IProductBusinessRules, ProductBusinessRules>();
 
         return services;
     }

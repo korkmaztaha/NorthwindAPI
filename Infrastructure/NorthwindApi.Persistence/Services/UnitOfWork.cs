@@ -1,4 +1,5 @@
-﻿using NorthwindApi.Application.Interfaces.Infrastructure;
+﻿using Microsoft.EntityFrameworkCore.Storage;
+using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Application.Interfaces.Repositories;
 using NorthwindApi.Persistence.Contexts;
 using NorthwindApi.Persistence.Repositories;
@@ -15,6 +16,7 @@ namespace NorthwindApi.Persistence.Services
     {
         private readonly NorthwindDbContext _context;
         private readonly Dictionary<Type, object> _repositories = new();
+        private IDbContextTransaction? _transaction;
 
         public UnitOfWork(NorthwindDbContext context) => _context = context;
 
@@ -28,6 +30,17 @@ namespace NorthwindApi.Persistence.Services
 
         public async Task<int> SaveChangesAsync(CancellationToken cancellationToken)
             => await _context.SaveChangesAsync(cancellationToken);
+        public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
+    => _transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+        public async Task CommitTransactionAsync(CancellationToken cancellationToken = default)
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+            await _transaction!.CommitAsync(cancellationToken);
+        }
+
+        public async Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
+            => await _transaction!.RollbackAsync(cancellationToken);
 
         public void Dispose() => _context.Dispose();
     }

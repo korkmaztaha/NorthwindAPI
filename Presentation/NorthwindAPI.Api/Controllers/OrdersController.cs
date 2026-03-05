@@ -1,6 +1,7 @@
 ﻿using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NorthwindApi.Application.Features.Orders.Commands.CreateOrder;
 using NorthwindApi.Application.Features.Orders.Queries.GetOrderDetail;
 using NorthwindApi.Application.Features.Orders.Queries.GetOrders;
 
@@ -36,6 +37,14 @@ namespace NorthwindAPI.Api.Controllers
                 cancellationToken);
             return Ok(result);
 
+        }
+        [HttpPost("CreateOrder", Name = "CreateOrder")]
+        public async Task<IActionResult> CreateOrder(
+             [FromBody] CreateOrderCommand command,
+             CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(command, cancellationToken);
+            return CreatedAtAction(nameof(GetOrderDetail), new { orderId = result.OrderId }, result);
         }
     }
 }
