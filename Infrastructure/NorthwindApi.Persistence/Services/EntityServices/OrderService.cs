@@ -6,6 +6,7 @@ using NorthwindApi.Application.Interfaces.BusinessRules;
 using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Application.Interfaces.Services;
 using NorthwindApi.Domain.Entities;
+using NorthwindApi.Persistence.BusinessRules;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,15 +20,18 @@ namespace NorthwindApi.Persistence.Services.EntityServices
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICustomerBusinessRules _customerBusinessRules;
         private readonly IProductBusinessRules _productBusinessRules;
+        private readonly IOrderBusinessRules _orderBusinessRules;
 
         public OrderService(
         IUnitOfWork unitOfWork,
         ICustomerBusinessRules customerBusinessRules,
-        IProductBusinessRules productBusinessRules)
+        IProductBusinessRules productBusinessRules,
+        IOrderBusinessRules orderBusinessRules)
         {
             _unitOfWork = unitOfWork;
             _customerBusinessRules = customerBusinessRules;
             _productBusinessRules = productBusinessRules;
+            _orderBusinessRules = orderBusinessRules;
         }
 
         public async Task<List<GetOrdersQueryResponse>> GetAllAsync(
@@ -106,8 +110,8 @@ namespace NorthwindApi.Persistence.Services.EntityServices
 
 
         public async Task<GetOrderDetailResponse> GetDetailAsync(
-       int orderId,
-       CancellationToken cancellationToken)
+                   int orderId,
+                    CancellationToken cancellationToken)
         {
             var order = await _unitOfWork.Repository<Orders>()
                 .GetAll()
@@ -165,9 +169,9 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             return await ProcessOrderAsync(request, products, cancellationToken);
         }
         private async Task<CreateOrderCommandResponse> ProcessOrderAsync(
-       CreateOrderCommand request,
-       List<Products> products,
-       CancellationToken cancellationToken)
+             CreateOrderCommand request,
+             List<Products> products,
+             CancellationToken cancellationToken)
         {
             await _unitOfWork.BeginTransactionAsync(cancellationToken);
             try
@@ -236,5 +240,49 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 throw;
             }
         }
+
+
+        public async Task<bool> DeleteAsync(int orderId, CancellationToken cancellationToken)
+        {
+            await _orderBusinessRules.OrderMustExistAsync(orderId, cancellationToken);
+
+            await _unitOfWork.BeginTransactionAsync(cancellationToken);
+            try
+            {
+                
+                var orderDetails = await _unitOfWork.Repository<OrderDetails>()
+                    .GetAll()
+                    .Include(x => x.Product)
+                    .Where(x => x.OrderId == orderId)
+                    .ToListAsync(cancellationToken);
+
+               
+                foreach (var detail in orderDetails)
+                {
+                    if (detail.Product != null)
+                    {
+                        detail.Product.UnitsInStock += detail.Quantity;
+                        _unitOfWork.Repository<Products>().Update(detail.Product);
+                    }
+                    _unitOfWork.Repository<OrderDetails>().Delete(detail);
+                }
+
+                
+                var order = await _unitOfWork.Repository<Orders>()
+                    .GetAll()
+                    .FirstOrDefaultAsync(x => x.OrderId == orderId, cancellationToken);
+
+                _unitOfWork.Repository<Orders>().Delete(order!);
+
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+                return true;
+            }
+            catch
+            {
+                await _unitOfWork.RollbackTransactionAsync(cancellationToken);
+                throw;
+            }
+        }
     }
+
 }

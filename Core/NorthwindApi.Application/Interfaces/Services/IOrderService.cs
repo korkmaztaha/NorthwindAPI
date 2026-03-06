@@ -15,6 +15,7 @@ namespace NorthwindApi.Application.Interfaces.Services
         Task<List<GetOrdersQueryResponse>> GetAllAsync(GetOrdersQuery request, CancellationToken cancellationToken);
         Task<GetOrderDetailResponse> GetDetailAsync(int orderId, CancellationToken cancellationToken);
 
-        Task<CreateOrderCommandResponse> CreateAsync(CreateOrderCommand request, CancellationToken cancellationToken); 
+        Task<CreateOrderCommandResponse> CreateAsync(CreateOrderCommand request, CancellationToken cancellationToken);
+        Task<bool> DeleteAsync(int orderId, CancellationToken cancellationToken);
     }
 }

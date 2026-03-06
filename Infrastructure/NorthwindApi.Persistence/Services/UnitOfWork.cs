@@ -37,11 +37,18 @@ namespace NorthwindApi.Persistence.Services
         {
             await _context.SaveChangesAsync(cancellationToken);
             await _transaction!.CommitAsync(cancellationToken);
+            _transaction.Dispose(); 
+            _transaction = null;   
         }
 
         public async Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
-            => await _transaction!.RollbackAsync(cancellationToken);
+        {
+            await _transaction!.RollbackAsync(cancellationToken);
+            _transaction.Dispose(); 
+            _transaction = null;    
 
-        public void Dispose() => _context.Dispose();
+        }
+
+        public void Dispose() { _transaction?.Dispose(); _context.Dispose(); }
     }
 }

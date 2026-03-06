@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NorthwindApi.Application.Features.Orders.Commands.CreateOrder;
+using NorthwindApi.Application.Features.Orders.Commands.DeleteOrder;
 using NorthwindApi.Application.Features.Orders.Queries.GetOrderDetail;
 using NorthwindApi.Application.Features.Orders.Queries.GetOrders;
 
@@ -45,6 +46,15 @@ namespace NorthwindAPI.Api.Controllers
         {
             var result = await _mediator.Send(command, cancellationToken);
             return CreatedAtAction(nameof(GetOrderDetail), new { orderId = result.OrderId }, result);
+        }
+
+        [HttpDelete("DeleteOrder/{orderId}", Name = "DeleteOrder")]
+        public async Task<IActionResult> DeleteOrder(
+            int orderId,
+            CancellationToken cancellationToken)
+        {
+            await _mediator.Send(new DeleteOrderCommand { OrderId = orderId }, cancellationToken);
+            return Ok();
         }
     }
 }
