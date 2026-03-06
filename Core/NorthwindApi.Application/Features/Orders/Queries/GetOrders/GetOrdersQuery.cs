@@ -17,5 +17,7 @@ namespace NorthwindApi.Application.Features.Orders.Queries.GetOrders
         public string? ShipCountry { get; set; }
         public int PageNumber { get; set; } = 1;
         public int PageSize { get; set; } = 10;
+        public int? ShipperId { get; set; }     
+        public bool? IsDelayed { get; set; }   
     }
 }

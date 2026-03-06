@@ -66,6 +66,14 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             if (!string.IsNullOrEmpty(request.ShipCountry))
                 query = query.Where(x => x.ShipCountry == request.ShipCountry);
 
+            if (request.ShipperId.HasValue)
+                query = query.Where(x => x.ShipVia == request.ShipperId);
+
+            if (request.IsDelayed == true)
+                query = query.Where(x =>
+                    x.RequiredDate < DateTime.UtcNow &&
+                    x.ShippedDate == null);
+
             return await query
                 .OrderByDescending(x => x.OrderDate)
                 .Skip((request.PageNumber - 1) * request.PageSize)
