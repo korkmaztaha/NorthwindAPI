@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
 using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Application.Interfaces.Services;
@@ -92,6 +93,96 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                     .ToString("MMMM", new System.Globalization.CultureInfo("tr-TR"));
 
             return result;
+        }
+
+        public async Task<List<GetSalesByCategoryResponse>> GetSalesByCategoryAsync(
+        GetSalesByCategoryQuery request,
+        CancellationToken cancellationToken)
+        {
+            var query = _unitOfWork.Repository<Categories>()
+                .GetAll()
+                .Select(c => new GetSalesByCategoryResponse
+                {
+                    CategoryId = c.CategoryId,
+                    CategoryName = c.CategoryName,
+
+
+                    TotalOrders = c.Products
+                        .SelectMany(p => p.OrderDetails)
+                        .Select(od => od.OrderId)
+                        .Distinct()
+                        .Count(),
+
+                    TotalProductsSold = c.Products
+                        .SelectMany(p => p.OrderDetails)
+                        .Sum(od => (int)od.Quantity),
+
+                    TotalSales = c.Products
+                        .SelectMany(p => p.OrderDetails)
+                        .Sum(od => (decimal)(od.Quantity * od.UnitPrice * (decimal)(1 - od.Discount))),
+
+                    AverageOrderValue = c.Products
+                        .SelectMany(p => p.OrderDetails)
+                        .Any()
+                            ? c.Products
+                                .SelectMany(p => p.OrderDetails)
+                                .Average(od => (decimal)(od.Quantity * od.UnitPrice * (decimal)(1 - od.Discount)))
+                            : 0,
+
+
+                    TopSellingProduct = c.Products
+                        .OrderByDescending(p => p.OrderDetails.Sum(od => od.Quantity))
+                        .Select(p => p.ProductName)
+                        .FirstOrDefault() ?? "N/A"
+                });
+
+
+            if (request.Year.HasValue || request.Month.HasValue)
+            {
+
+                var orderQuery = _unitOfWork.Repository<Orders>()
+                    .GetAll()
+                    .Where(o => o.OrderDate.HasValue);
+
+                if (request.Year.HasValue)
+                    orderQuery = orderQuery.Where(o => o.OrderDate!.Value.Year == request.Year.Value);
+
+                if (request.Month.HasValue)
+                    orderQuery = orderQuery.Where(o => o.OrderDate!.Value.Month == request.Month.Value);
+
+                var result = await orderQuery
+                    .SelectMany(o => o.OrderDetails)
+                    .GroupBy(od => new
+                    {
+                        od.Product!.CategoryId,
+                        CategoryName = od.Product.Category!.CategoryName
+                    })
+                    .Select(g => new GetSalesByCategoryResponse
+                    {
+                        CategoryId = g.Key.CategoryId ?? 0,
+                        CategoryName = g.Key.CategoryName,
+                        TotalOrders = g.Select(od => od.OrderId).Distinct().Count(),
+                        TotalProductsSold = g.Sum(od => (int)od.Quantity),
+                        TotalSales = g.Sum(od => (decimal)(od.Quantity * od.UnitPrice * (decimal)(1 - od.Discount))),
+                        AverageOrderValue = g.Any() ? g.Average(od => od.Quantity * od.UnitPrice * (1 - (decimal)od.Discount)) : 0,
+                        TopSellingProduct = g.GroupBy(od => od.Product!.ProductName)
+                            .OrderByDescending(pg => pg.Sum(od => od.Quantity))
+                            .Select(pg => pg.Key)
+                            .FirstOrDefault() ?? "N/A"
+                    })
+                    .OrderByDescending(x => x.TotalSales)
+                    .Skip((request.PageNumber - 1) * request.PageSize)
+                    .Take(request.PageSize)
+                    .ToListAsync(cancellationToken);
+
+                return result;
+            }
+
+            return await query
+                .OrderByDescending(x => x.TotalSales)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync(cancellationToken);
         }
     }
 }

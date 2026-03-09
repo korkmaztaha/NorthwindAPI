@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
 
 namespace NorthwindAPI.Api.Controllers
@@ -22,6 +23,14 @@ namespace NorthwindAPI.Api.Controllers
         public async Task<IActionResult> GetSalesByPeriod(
             [FromQuery] GetSalesByPeriodQuery query,
             CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(query, cancellationToken);
+            return Ok(result);
+        }
+        [HttpGet("GetSalesByCategory", Name = "GetSalesByCategory")]
+        public async Task<IActionResult> GetSalesByCategory(
+             [FromQuery] GetSalesByCategoryQuery query,
+             CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(query, cancellationToken);
             return Ok(result);
