@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IShipperService, ShipperService>();
         services.AddScoped<ICategoryBusinessRules, CategoryBusinessRules>();
         services.AddScoped<ICategoryService, CategoryService>();
+        services.AddScoped<IReportService, ReportService>();
 
         return services;
     }

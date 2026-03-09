@@ -15,7 +15,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Features\Reports\" />
+    <Folder Include="Features\Reports\GetTopSellingProducts\" />
+    <Folder Include="Features\Reports\GetEmployeePerformance\" />
+    <Folder Include="Features\Reports\GetStockAnalysis\" />
+    <Folder Include="Features\Reports\GetCustomerSegmentation\" />
   </ItemGroup>
 
 </Project>
