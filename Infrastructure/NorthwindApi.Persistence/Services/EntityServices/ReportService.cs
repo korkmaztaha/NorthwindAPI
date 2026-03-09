@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
+using NorthwindApi.Application.Features.Reports.GetStockAnalysis;
 using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Application.Interfaces.Services;
 using NorthwindApi.Domain.Entities;
@@ -183,6 +184,142 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .ToListAsync(cancellationToken);
+        }
+
+        public async Task<GetStockAnalysisResponse> GetStockAnalysisAsync(
+        GetStockAnalysisQuery request,
+        CancellationToken cancellationToken)
+        {
+            var query = _unitOfWork.Repository<Products>().GetAll();
+            List<StockAnalysisItemResponse> items;
+
+            switch (request.AnalysisType)
+            {
+                case StockAnalysisType.Critical:
+                    items = await query
+                        .Where(p => p.UnitsInStock < p.ReorderLevel && !p.Discontinued)
+                        .OrderBy(p => p.UnitsInStock)
+                        .Skip((request.PageNumber - 1) * request.PageSize)
+                        .Take(request.PageSize)
+                        .Select(p => new StockAnalysisItemResponse
+                        {
+                            ProductId = p.ProductId,
+                            ProductName = p.ProductName,
+                            CategoryName = p.Category != null ? p.Category.CategoryName : null,
+                            SupplierName = p.Supplier != null ? p.Supplier.CompanyName : null,
+                            UnitsInStock = p.UnitsInStock,
+                            UnitsOnOrder = p.UnitsOnOrder,
+                            ReorderLevel = p.ReorderLevel,
+                            UnitPrice = p.UnitPrice,
+                            Discontinued = p.Discontinued,
+                            StockDeficit = (short?)(p.ReorderLevel - p.UnitsInStock)
+                        })
+                        .ToListAsync(cancellationToken);
+                    break;
+
+                case StockAnalysisType.Excess:
+                    var cutoffDate = DateTime.UtcNow.AddDays(-(request.DaysSinceLastSale ?? 180));
+                    items = await query
+                        .Where(p => !p.Discontinued && p.UnitsInStock > 0)
+                        .Where(p => !p.OrderDetails.Any(od =>
+                            od.Order!.OrderDate.HasValue &&
+                            od.Order.OrderDate.Value >= cutoffDate))
+                        .OrderByDescending(p => p.UnitsInStock)
+                        .Skip((request.PageNumber - 1) * request.PageSize)
+                        .Take(request.PageSize)
+                        .Select(p => new StockAnalysisItemResponse
+                        {
+                            ProductId = p.ProductId,
+                            ProductName = p.ProductName,
+                            CategoryName = p.Category != null ? p.Category.CategoryName : null,
+                            SupplierName = p.Supplier != null ? p.Supplier.CompanyName : null,
+                            UnitsInStock = p.UnitsInStock,
+                            UnitsOnOrder = p.UnitsOnOrder,
+                            ReorderLevel = p.ReorderLevel,
+                            UnitPrice = p.UnitPrice,
+                            Discontinued = p.Discontinued,
+                            LastSaleDate = p.OrderDetails
+                                .Where(od => od.Order!.OrderDate.HasValue)
+                                .OrderByDescending(od => od.Order!.OrderDate)
+                                .Select(od => od.Order!.OrderDate)
+                                .FirstOrDefault(),
+                            DaysSinceLastSale = p.OrderDetails.Any()
+                                ? (int)(DateTime.UtcNow - p.OrderDetails
+                                    .Where(od => od.Order!.OrderDate.HasValue)
+                                    .OrderByDescending(od => od.Order!.OrderDate)
+                                    .Select(od => od.Order!.OrderDate!.Value)
+                                    .FirstOrDefault()).TotalDays
+                                : null
+                        })
+                        .ToListAsync(cancellationToken);
+                    break;
+
+                case StockAnalysisType.Turnover:
+                    var last12Months = DateTime.UtcNow.AddMonths(-12);
+                    items = await query
+                        .Where(p => !p.Discontinued && p.UnitsInStock > 0)
+                        .OrderByDescending(p =>
+                            p.OrderDetails
+                                .Where(od => od.Order!.OrderDate >= last12Months)
+                                .Sum(od => (int?)od.Quantity) ?? 0)
+                        .Skip((request.PageNumber - 1) * request.PageSize)
+                        .Take(request.PageSize)
+                        .Select(p => new StockAnalysisItemResponse
+                        {
+                            ProductId = p.ProductId,
+                            ProductName = p.ProductName,
+                            CategoryName = p.Category != null ? p.Category.CategoryName : null,
+                            SupplierName = p.Supplier != null ? p.Supplier.CompanyName : null,
+                            UnitsInStock = p.UnitsInStock,
+                            UnitsOnOrder = p.UnitsOnOrder,
+                            ReorderLevel = p.ReorderLevel,
+                            UnitPrice = p.UnitPrice,
+                            Discontinued = p.Discontinued,
+                            TotalSoldLast12Months = p.OrderDetails
+                                .Where(od => od.Order!.OrderDate >= last12Months)
+                                .Sum(od => (int?)od.Quantity) ?? 0,
+                            TurnoverRate = p.UnitsInStock > 0
+                                ? (decimal)(p.OrderDetails
+                                    .Where(od => od.Order!.OrderDate >= last12Months)
+                                    .Sum(od => (int?)od.Quantity) ?? 0) / p.UnitsInStock
+                                : 0
+                        })
+                        .ToListAsync(cancellationToken);
+                    break;
+
+                case StockAnalysisType.Discontinued:
+                    items = await query
+                        .Where(p => p.Discontinued)
+                        .OrderByDescending(p => p.OrderDetails.Sum(od => (int?)od.Quantity) ?? 0)
+                        .Skip((request.PageNumber - 1) * request.PageSize)
+                        .Take(request.PageSize)
+                        .Select(p => new StockAnalysisItemResponse
+                        {
+                            ProductId = p.ProductId,
+                            ProductName = p.ProductName,
+                            CategoryName = p.Category != null ? p.Category.CategoryName : null,
+                            SupplierName = p.Supplier != null ? p.Supplier.CompanyName : null,
+                            UnitsInStock = p.UnitsInStock,
+                            UnitPrice = p.UnitPrice,
+                            Discontinued = p.Discontinued,
+                            TotalOrders = p.OrderDetails.Select(od => od.OrderId).Distinct().Count(),
+                            TotalRevenue = p.OrderDetails
+                                .Sum(od => (decimal?)(od.Quantity * od.UnitPrice * (decimal)(1 - od.Discount))) ?? 0
+                        })
+                        .ToListAsync(cancellationToken);
+                    break;
+
+                default:
+                    items = new List<StockAnalysisItemResponse>();
+                    break;
+            }
+
+            return new GetStockAnalysisResponse
+            {
+                Items = items,
+                TotalCount = items.Count,
+                AnalysisType = request.AnalysisType.ToString()
+            };
         }
     }
 }
