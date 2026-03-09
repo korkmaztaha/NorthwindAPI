@@ -42,6 +42,8 @@ public static class DependencyInjection
         services.AddScoped<IOrderBusinessRules, OrderBusinessRules>();
         services.AddScoped<IShipperBusinessRules, ShipperBusinessRules>();
         services.AddScoped<IShipperService, ShipperService>();
+        services.AddScoped<ICategoryBusinessRules, CategoryBusinessRules>();
+        services.AddScoped<ICategoryService, CategoryService>();
 
         return services;
     }
