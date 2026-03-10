@@ -16,7 +16,6 @@
 
   <ItemGroup>
     <Folder Include="Features\Reports\GetTopSellingProducts\" />
-    <Folder Include="Features\Reports\GetCustomerSegmentation\" />
   </ItemGroup>
 
 </Project>

@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using NorthwindApi.Application.Common.BusinessRules;
 using NorthwindApi.Application.Common.Helpers;
+using NorthwindApi.Application.Features.Reports.GetCustomerRFM;
 using NorthwindApi.Application.Features.Reports.GetEmployeePerformance;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
@@ -430,5 +432,151 @@ namespace NorthwindApi.Persistence.Services.EntityServices
 
             return employees;
         }
+
+        public async Task<GetCustomerRFMResult> GetCustomerRFMAsync(
+        GetCustomerRFMQuery request,
+        CancellationToken cancellationToken)
+        {
+            var referenceDate = DateTime.UtcNow;
+
+            // 1. Adım: Ham RFM verilerini çek
+            var rawData = await _unitOfWork.Repository<Customer>()
+                .GetAll()
+                .Where(c => c.Orders.Any())
+                .Where(c => string.IsNullOrEmpty(request.Country) || c.Country == request.Country)
+                .Select(c => new
+                {
+                    c.CustomerId,
+                    c.CompanyName,
+                    c.Country,
+                    c.City,
+                    LastOrderDate = c.Orders
+                        .Where(o => o.OrderDate.HasValue)
+                        .Max(o => o.OrderDate),
+                    TotalOrders = c.Orders.Count(),
+                    TotalSpent = c.Orders
+                        .SelectMany(o => o.OrderDetails)
+                        .Sum(od => (decimal)(od.Quantity * od.UnitPrice * (decimal)(1 - od.Discount)))
+                })
+                .ToListAsync(cancellationToken);
+
+            // 2. Adım: DaysSinceLastOrder hesapla 
+            var rfmData = rawData.Select(c => new
+            {
+                c.CustomerId,
+                c.CompanyName,
+                c.Country,
+                c.City,
+                DaysSinceLastOrder = c.LastOrderDate.HasValue
+                    ? (int)(referenceDate - c.LastOrderDate.Value).TotalDays
+                    : int.MaxValue,
+                c.TotalOrders,
+                c.TotalSpent
+            }).ToList();
+
+            // 3. Adım: skor vermek için sınır değerleri bul
+            var recencyValues = rfmData.Select(x => x.DaysSinceLastOrder).OrderBy(x => x).ToList();
+            var frequencyValues = rfmData.Select(x => x.TotalOrders).OrderBy(x => x).ToList();
+            var monetaryValues = rfmData.Select(x => x.TotalSpent).OrderBy(x => x).ToList();
+
+            int count = rfmData.Count;
+
+            
+            double r20 = recencyValues[(int)(count * 0.20)];
+            double r40 = recencyValues[(int)(count * 0.40)];
+            double r60 = recencyValues[(int)(count * 0.60)];
+            double r80 = recencyValues[(int)(count * 0.80)];
+
+         
+            double f20 = frequencyValues[(int)(count * 0.20)];
+            double f40 = frequencyValues[(int)(count * 0.40)];
+            double f60 = frequencyValues[(int)(count * 0.60)];
+            double f80 = frequencyValues[(int)(count * 0.80)];
+
+         
+            double m20 = (double)monetaryValues[(int)(count * 0.20)];
+            double m40 = (double)monetaryValues[(int)(count * 0.40)];
+            double m60 = (double)monetaryValues[(int)(count * 0.60)];
+            double m80 = (double)monetaryValues[(int)(count * 0.80)];
+
+           
+            var scored = rfmData.Select(c =>
+            {
+                // Recency: az gün geçmiş = yüksek skor (ters)
+                int rScore = c.DaysSinceLastOrder <= r20 ? 5
+                    : c.DaysSinceLastOrder <= r40 ? 4
+                    : c.DaysSinceLastOrder <= r60 ? 3
+                    : c.DaysSinceLastOrder <= r80 ? 2 : 1;
+
+                // Frequency: çok sipariş = yüksek skor
+                int fScore = c.TotalOrders >= f80 ? 5
+                    : c.TotalOrders >= f60 ? 4
+                    : c.TotalOrders >= f40 ? 3
+                    : c.TotalOrders >= f20 ? 2 : 1;
+
+                // Monetary: çok harcama = yüksek skor
+                int mScore = (double)c.TotalSpent >= m80 ? 5
+                    : (double)c.TotalSpent >= m60 ? 4
+                    : (double)c.TotalSpent >= m40 ? 3
+                    : (double)c.TotalSpent >= m20 ? 2 : 1;
+
+                int rfmScore = rScore + fScore + mScore;
+
+                // 5. Adım: Segment belirle
+                string segment = RFMSegmentCalculator.DetermineSegment(rScore, fScore, mScore);
+
+                return new GetCustomerRFMResponse
+                {
+                    CustomerId = c.CustomerId,
+                    CompanyName = c.CompanyName,
+                    Country = c.Country,
+                    City = c.City,
+                    DaysSinceLastOrder = c.DaysSinceLastOrder,
+                    TotalOrders = c.TotalOrders,
+                    TotalSpent = c.TotalSpent,
+                    RecencyScore = rScore,
+                    FrequencyScore = fScore,
+                    MonetaryScore = mScore,
+                    RFMScore = rfmScore,
+                    Segment = segment
+                };
+            }).ToList();
+
+            
+            var filtered = scored.AsEnumerable();
+            if (!string.IsNullOrEmpty(request.Segment))
+                filtered = filtered.Where(x => x.Segment == request.Segment);
+
+            var filteredList = filtered
+                .OrderByDescending(x => x.RFMScore)
+                .ToList();
+
+           
+            var summary = new RFMSummary
+            {
+                TotalCustomers = scored.Count,
+                Champions = scored.Count(x => x.Segment == "Champions"),
+                Loyal = scored.Count(x => x.Segment == "Loyal"),
+                AtRisk = scored.Count(x => x.Segment == "AtRisk"),
+                Lost = scored.Count(x => x.Segment == "Lost"),
+                NewCustomers = scored.Count(x => x.Segment == "NewCustomers"),
+                Others = scored.Count(x => x.Segment == "Others")
+            };
+
+            
+            var paged = filteredList
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToList();
+
+            return new GetCustomerRFMResult
+            {
+                Items = paged,
+                TotalCount = filteredList.Count,
+                Summary = summary
+            };
+        }
+
+
     }
 }
