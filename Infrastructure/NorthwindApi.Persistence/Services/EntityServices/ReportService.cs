@@ -1,4 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using NorthwindApi.Application.Common.Helpers;
+using NorthwindApi.Application.Features.Reports.GetEmployeePerformance;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
 using NorthwindApi.Application.Features.Reports.GetStockAnalysis;
@@ -90,8 +92,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
 
 
             foreach (var item in result.Where(x => x.Month.HasValue))
-                item.MonthName = new DateTime(item.Year, item.Month!.Value, 1)
-                    .ToString("MMMM", new System.Globalization.CultureInfo("tr-TR"));
+                item.MonthName = DateHelper.GetMonthName(item.Year, item.Month!.Value);
 
             return result;
         }
@@ -320,6 +321,114 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 TotalCount = items.Count,
                 AnalysisType = request.AnalysisType.ToString()
             };
+        }
+
+        public async Task<List<GetEmployeePerformanceResponse>> GetEmployeePerformanceAsync(
+        GetEmployeePerformanceQuery request,
+        CancellationToken cancellationToken)
+        {
+            var query = _unitOfWork.Repository<Employees>().GetAll();
+
+            if (request.EmployeeId.HasValue)
+                query = query.Where(e => e.EmployeeId == request.EmployeeId);
+
+            var employees = await query
+                .OrderBy(e => e.LastName)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .Select(e => new GetEmployeePerformanceResponse
+                {
+                    EmployeeId = e.EmployeeId,
+                    FullName = e.FirstName + " " + e.LastName,
+                    Title = e.Title,
+                    ReportsToName = e.ReportsToNavigation != null
+                        ? e.ReportsToNavigation.FirstName + " " + e.ReportsToNavigation.LastName
+                        : null,
+
+                    // Sipariş bilgileri
+                    TotalOrders = e.Orders
+                        .Count(o => o.OrderDate.HasValue &&
+                            (!request.Year.HasValue || o.OrderDate.Value.Year == request.Year) &&
+                            (!request.Month.HasValue || o.OrderDate.Value.Month == request.Month)),
+
+                    TotalRevenue = e.Orders
+                        .Where(o => o.OrderDate.HasValue &&
+                            (!request.Year.HasValue || o.OrderDate.Value.Year == request.Year) &&
+                            (!request.Month.HasValue || o.OrderDate.Value.Month == request.Month))
+                        .SelectMany(o => o.OrderDetails)
+                        .Sum(od => (decimal)(od.Quantity * od.UnitPrice * (decimal)(1 - od.Discount))),
+
+                    AverageOrderValue = e.Orders
+                        .Where(o => o.OrderDate.HasValue &&
+                            (!request.Year.HasValue || o.OrderDate.Value.Year == request.Year) &&
+                            (!request.Month.HasValue || o.OrderDate.Value.Month == request.Month))
+                        .SelectMany(o => o.OrderDetails)
+                        .Any()
+                            ? e.Orders
+                                .Where(o => o.OrderDate.HasValue &&
+                                    (!request.Year.HasValue || o.OrderDate.Value.Year == request.Year) &&
+                                    (!request.Month.HasValue || o.OrderDate.Value.Month == request.Month))
+                                .SelectMany(o => o.OrderDetails)
+                                .Average(od => (decimal)(od.Quantity * od.UnitPrice * (decimal)(1 - od.Discount)))
+                            : 0,
+
+                    TotalItemsSold = e.Orders
+                        .Where(o => o.OrderDate.HasValue &&
+                            (!request.Year.HasValue || o.OrderDate.Value.Year == request.Year) &&
+                            (!request.Month.HasValue || o.OrderDate.Value.Month == request.Month))
+                        .SelectMany(o => o.OrderDetails)
+                        .Sum(od => (int)od.Quantity),
+
+                    // En çok sattığı kategori
+                    TopCategory = e.Orders
+                        .Where(o => o.OrderDate.HasValue &&
+                            (!request.Year.HasValue || o.OrderDate.Value.Year == request.Year) &&
+                            (!request.Month.HasValue || o.OrderDate.Value.Month == request.Month))
+                        .SelectMany(o => o.OrderDetails)
+                        .GroupBy(od => od.Product!.Category!.CategoryName)
+                        .OrderByDescending(g => g.Sum(od => od.Quantity))
+                        .Select(g => g.Key)
+                        .FirstOrDefault(),
+
+                    // En çok sattığı müşteri
+                    TopCustomer = e.Orders
+                        .Where(o => o.OrderDate.HasValue &&
+                            (!request.Year.HasValue || o.OrderDate.Value.Year == request.Year) &&
+                            (!request.Month.HasValue || o.OrderDate.Value.Month == request.Month))
+                        .GroupBy(o => o.Customer!.CompanyName)
+                        .OrderByDescending(g => g.Count())
+                        .Select(g => g.Key)
+                        .FirstOrDefault(),
+
+                    // Aylık trend
+                    MonthlyTrends = e.Orders
+                        .Where(o => o.OrderDate.HasValue &&
+                            (!request.Year.HasValue || o.OrderDate.Value.Year == request.Year))
+                        .GroupBy(o => new
+                        {
+                            Year = o.OrderDate!.Value.Year,
+                            Month = o.OrderDate!.Value.Month
+                        })
+                        .Select(g => new EmployeeMonthlyTrend
+                        {
+                            Year = g.Key.Year,
+                            Month = g.Key.Month,
+                            TotalOrders = g.Count(),
+                            TotalRevenue = g.SelectMany(o => o.OrderDetails)
+                                .Sum(od => (decimal)(od.Quantity * od.UnitPrice * (decimal)(1 - od.Discount)))
+                        })
+                        .OrderBy(t => t.Year)
+                        .ThenBy(t => t.Month)
+                        .ToList()
+                })
+                .ToListAsync(cancellationToken);
+
+
+            foreach (var employee in employees)
+                foreach (var trend in employee.MonthlyTrends)
+                    trend.MonthName = DateHelper.GetMonthName(trend.Year, trend.Month);
+
+            return employees;
         }
     }
 }

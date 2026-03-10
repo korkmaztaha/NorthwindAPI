@@ -1,4 +1,5 @@
-﻿using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
+﻿using NorthwindApi.Application.Features.Reports.GetEmployeePerformance;
+using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
 using NorthwindApi.Application.Features.Reports.GetStockAnalysis;
 using System;
@@ -13,7 +14,8 @@ namespace NorthwindApi.Application.Interfaces.Services
     {
         Task<List<GetSalesByPeriodResponse>> GetSalesByPeriodAsync(GetSalesByPeriodQuery request, CancellationToken cancellationToken);
         Task<List<GetSalesByCategoryResponse>> GetSalesByCategoryAsync(GetSalesByCategoryQuery request, CancellationToken cancellationToken);
-        Task<GetStockAnalysisResponse> GetStockAnalysisAsync(GetStockAnalysisQuery request, CancellationToken cancellationToken); 
+        Task<GetStockAnalysisResponse> GetStockAnalysisAsync(GetStockAnalysisQuery request, CancellationToken cancellationToken);
+        Task<List<GetEmployeePerformanceResponse>> GetEmployeePerformanceAsync(GetEmployeePerformanceQuery request, CancellationToken cancellationToken);
     }
 }
 

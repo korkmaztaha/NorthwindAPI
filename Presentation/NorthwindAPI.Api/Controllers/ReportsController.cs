@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using NorthwindApi.Application.Features.Reports.GetEmployeePerformance;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
 using NorthwindApi.Application.Features.Reports.GetStockAnalysis;
@@ -40,6 +41,15 @@ namespace NorthwindAPI.Api.Controllers
         public async Task<IActionResult> GetStockAnalysis(
               [FromQuery] GetStockAnalysisQuery query,
               CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(query, cancellationToken);
+            return Ok(result);
+        }
+
+        [HttpGet("GetEmployeePerformance", Name = "GetEmployeePerformance")]
+        public async Task<IActionResult> GetEmployeePerformance(
+            [FromQuery] GetEmployeePerformanceQuery query,
+            CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(query, cancellationToken);
             return Ok(result);

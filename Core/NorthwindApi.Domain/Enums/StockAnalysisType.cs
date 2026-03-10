@@ -11,6 +11,6 @@ namespace NorthwindApi.Domain.Enums
         Critical,       // Minimum stok altına düşenler
         Excess,         // Uzun süredir satılmayanlar
         Turnover,       // Stok devir hızı
-        Discontinued    // Discontinued ürünler
+        Discontinued    // Üretimi Durdurulan ürünler
     }
 }
