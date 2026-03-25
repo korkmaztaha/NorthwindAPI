@@ -7,6 +7,7 @@ using NorthwindApi.Application.Features.Reports.GetEmployeePerformance;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
 using NorthwindApi.Application.Features.Reports.GetStockAnalysis;
+using NorthwindApi.Application.Features.Reports.GetTopSellingProducts;
 
 namespace NorthwindAPI.Api.Controllers
 {
@@ -60,6 +61,15 @@ namespace NorthwindAPI.Api.Controllers
         [HttpGet("GetCustomerRFM", Name = "GetCustomerRFM")]
         public async Task<IActionResult> GetCustomerRFM(
             [FromQuery] GetCustomerRFMQuery query,
+            CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(query, cancellationToken);
+            return Ok(result);
+        }
+
+        [HttpGet("GetTopSellingProducts", Name = "GetTopSellingProducts")]
+        public async Task<IActionResult> GetTopSellingProducts(
+            [FromQuery] GetTopSellingProductsQuery query,
             CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(query, cancellationToken);

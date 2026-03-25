@@ -6,6 +6,7 @@ using NorthwindApi.Application.Features.Reports.GetEmployeePerformance;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
 using NorthwindApi.Application.Features.Reports.GetStockAnalysis;
+using NorthwindApi.Application.Features.Reports.GetTopSellingProducts;
 using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Application.Interfaces.Services;
 using NorthwindApi.Domain.Entities;
@@ -439,7 +440,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
         {
             var referenceDate = DateTime.UtcNow;
 
-            // 1. Adım: Ham RFM verilerini çek
+
             var rawData = await _unitOfWork.Repository<Customer>()
                 .GetAll()
                 .Where(c => c.Orders.Any())
@@ -460,7 +461,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 })
                 .ToListAsync(cancellationToken);
 
-            // 2. Adım: DaysSinceLastOrder hesapla 
+
             var rfmData = rawData.Select(c => new
             {
                 c.CustomerId,
@@ -474,32 +475,32 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 c.TotalSpent
             }).ToList();
 
-            // 3. Adım: skor vermek için sınır değerleri bul
+
             var recencyValues = rfmData.Select(x => x.DaysSinceLastOrder).OrderBy(x => x).ToList();
             var frequencyValues = rfmData.Select(x => x.TotalOrders).OrderBy(x => x).ToList();
             var monetaryValues = rfmData.Select(x => x.TotalSpent).OrderBy(x => x).ToList();
 
             int count = rfmData.Count;
 
-            
+
             double r20 = recencyValues[(int)(count * 0.20)];
             double r40 = recencyValues[(int)(count * 0.40)];
             double r60 = recencyValues[(int)(count * 0.60)];
             double r80 = recencyValues[(int)(count * 0.80)];
 
-         
+
             double f20 = frequencyValues[(int)(count * 0.20)];
             double f40 = frequencyValues[(int)(count * 0.40)];
             double f60 = frequencyValues[(int)(count * 0.60)];
             double f80 = frequencyValues[(int)(count * 0.80)];
 
-         
+
             double m20 = (double)monetaryValues[(int)(count * 0.20)];
             double m40 = (double)monetaryValues[(int)(count * 0.40)];
             double m60 = (double)monetaryValues[(int)(count * 0.60)];
             double m80 = (double)monetaryValues[(int)(count * 0.80)];
 
-           
+
             var scored = rfmData.Select(c =>
             {
                 // Recency: az gün geçmiş = yüksek skor (ters)
@@ -522,7 +523,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
 
                 int rfmScore = rScore + fScore + mScore;
 
-                // 5. Adım: Segment belirle
+
                 string segment = RFMSegmentCalculator.DetermineSegment(rScore, fScore, mScore);
 
                 return new GetCustomerRFMResponse
@@ -542,7 +543,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 };
             }).ToList();
 
-            
+
             var filtered = scored.AsEnumerable();
             if (!string.IsNullOrEmpty(request.Segment))
                 filtered = filtered.Where(x => x.Segment == request.Segment);
@@ -551,7 +552,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 .OrderByDescending(x => x.RFMScore)
                 .ToList();
 
-           
+
             var summary = new RFMSummary
             {
                 TotalCustomers = scored.Count,
@@ -563,7 +564,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 Others = scored.Count(x => x.Segment == "Others")
             };
 
-            
+
             var paged = filteredList
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
@@ -575,6 +576,144 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 TotalCount = filteredList.Count,
                 Summary = summary
             };
+        }
+        public async Task<List<GetTopSellingProductsResponse>> GetTopSellingProductsAsync(
+        GetTopSellingProductsQuery request,
+        CancellationToken cancellationToken)
+        {
+            var orderQuery = _unitOfWork.Repository<Orders>()
+                .GetAll()
+                .Where(o => o.OrderDate.HasValue);
+
+
+            if (request.Year.HasValue)
+                orderQuery = orderQuery.Where(o => o.OrderDate!.Value.Year == request.Year.Value);
+
+            if (request.Month.HasValue)
+                orderQuery = orderQuery.Where(o => o.OrderDate!.Value.Month == request.Month.Value);
+
+
+            var currentPeriod = await orderQuery
+                .SelectMany(o => o.OrderDetails)
+                .Where(od => !request.CategoryId.HasValue || od.Product!.CategoryId == request.CategoryId)
+                .GroupBy(od => new
+                {
+                    od.ProductId,
+                    od.Product!.ProductName,
+                    od.Product.CategoryId,
+                    CategoryName = od.Product.Category!.CategoryName
+                })
+                .Select(g => new
+                {
+                    g.Key.ProductId,
+                    g.Key.ProductName,
+                    g.Key.CategoryId,
+                    g.Key.CategoryName,
+                    TotalQuantitySold = g.Sum(od => (int)od.Quantity),
+                    TotalRevenue = g.Sum(od => (decimal)(od.Quantity * od.UnitPrice * (decimal)(1 - od.Discount))),
+                    TotalOrders = g.Select(od => od.OrderId).Distinct().Count()
+                })
+                .OrderByDescending(x => x.TotalQuantitySold)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync(cancellationToken);
+
+
+            var previousOrderQuery = _unitOfWork.Repository<Orders>()
+                .GetAll()
+                .Where(o => o.OrderDate.HasValue);
+
+            if (request.Year.HasValue && request.Month.HasValue)
+            {
+                // Ay bazında → önceki ay
+                var prevDate = new DateTime(request.Year.Value, request.Month.Value, 1).AddMonths(-1);
+                previousOrderQuery = previousOrderQuery
+                    .Where(o => o.OrderDate!.Value.Year == prevDate.Year &&
+                                o.OrderDate!.Value.Month == prevDate.Month);
+            }
+            else if (request.Year.HasValue)
+            {
+                // Yıl bazında → önceki yıl
+                previousOrderQuery = previousOrderQuery
+                    .Where(o => o.OrderDate!.Value.Year == request.Year.Value - 1);
+            }
+            else
+            {
+
+                var maxYear = await _unitOfWork.Repository<Orders>()
+                    .GetAll()
+                    .Where(o => o.OrderDate.HasValue)
+                    .MaxAsync(o => o.OrderDate!.Value.Year, cancellationToken);
+
+                previousOrderQuery = previousOrderQuery
+                    .Where(o => o.OrderDate!.Value.Year == maxYear - 1);
+            }
+
+
+            var productIds = currentPeriod.Select(x => x.ProductId).ToList();
+
+            var previousPeriod = await previousOrderQuery
+                .SelectMany(o => o.OrderDetails)
+                .Where(od => productIds.Contains(od.ProductId))
+                .Where(od => !request.CategoryId.HasValue || od.Product!.CategoryId == request.CategoryId)
+                .GroupBy(od => od.ProductId)
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+                    TotalQuantitySold = g.Sum(od => (int)od.Quantity),
+                    TotalRevenue = g.Sum(od => (decimal)(od.Quantity * od.UnitPrice * (decimal)(1 - od.Discount)))
+                })
+                .ToListAsync(cancellationToken);
+
+
+            return currentPeriod.Select(current =>
+            {
+                var previous = previousPeriod.FirstOrDefault(p => p.ProductId == current.ProductId);
+
+                decimal? quantityChangePercent = null;
+                decimal? revenueChangePercent = null;
+                string trendDirection = "New";
+
+                if (previous != null)
+                {
+                    if (previous.TotalQuantitySold > 0)
+                    {
+                        quantityChangePercent = Math.Round(
+                            ((decimal)(current.TotalQuantitySold - previous.TotalQuantitySold) /
+                            previous.TotalQuantitySold) * 100, 2);
+                    }
+
+                    if (previous.TotalRevenue > 0)
+                    {
+                        revenueChangePercent = Math.Round(
+                            ((current.TotalRevenue - previous.TotalRevenue) /
+                            previous.TotalRevenue) * 100, 2);
+                    }
+
+                    trendDirection = quantityChangePercent switch
+                    {
+                        > 5 => "Up",
+                        < -5 => "Down",
+                        _ => "Stable"
+                    };
+                }
+
+                return new GetTopSellingProductsResponse
+                {
+                    ProductId = current.ProductId,
+                    ProductName = current.ProductName,
+                    CategoryId = current.CategoryId,
+                    CategoryName = current.CategoryName,
+                    TotalQuantitySold = current.TotalQuantitySold,
+                    TotalRevenue = current.TotalRevenue,
+                    TotalOrders = current.TotalOrders,
+                    PreviousPeriodQuantity = previous?.TotalQuantitySold,
+                    PreviousPeriodRevenue = previous?.TotalRevenue,
+                    QuantityChangePercent = quantityChangePercent,
+                    RevenueChangePercent = revenueChangePercent,
+                    TrendDirection = trendDirection
+                };
+            }).ToList();
         }
 
 
