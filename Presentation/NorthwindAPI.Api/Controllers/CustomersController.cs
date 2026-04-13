@@ -10,7 +10,7 @@ using NorthwindApi.Domain.Constants;
 
 namespace NorthwindAPI.Api.Controllers;
 
-//[Authorize] 
+[Authorize] 
 [Route("api/[controller]")]
 [ApiController]
 public class CustomersController : ControllerBase
