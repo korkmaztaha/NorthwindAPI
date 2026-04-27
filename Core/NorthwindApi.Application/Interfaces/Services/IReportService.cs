@@ -1,5 +1,6 @@
 ﻿using NorthwindApi.Application.Features.Reports.GetCustomerRFM;
 using NorthwindApi.Application.Features.Reports.GetEmployeePerformance;
+using NorthwindApi.Application.Features.Reports.GetSalesByProduct;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
 using NorthwindApi.Application.Features.Reports.GetStockAnalysis;
@@ -20,6 +21,7 @@ namespace NorthwindApi.Application.Interfaces.Services
         Task<List<GetEmployeePerformanceResponse>> GetEmployeePerformanceAsync(GetEmployeePerformanceQuery request, CancellationToken cancellationToken);
         Task<GetCustomerRFMResult> GetCustomerRFMAsync(GetCustomerRFMQuery request, CancellationToken cancellationToken);
         Task<List<GetTopSellingProductsResponse>> GetTopSellingProductsAsync(GetTopSellingProductsQuery request, CancellationToken cancellationToken);
+        Task<List<GetSalesByProductResponse>> GetSalesByProductAsync(GetSalesByProductQuery request, CancellationToken cancellationToken);
 
     }
 }

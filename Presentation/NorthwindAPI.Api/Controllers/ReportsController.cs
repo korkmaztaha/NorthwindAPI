@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NorthwindApi.Application.Features.Reports.GetCustomerRFM;
 using NorthwindApi.Application.Features.Reports.GetEmployeePerformance;
+using NorthwindApi.Application.Features.Reports.GetSalesByProduct;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
 using NorthwindApi.Application.Features.Reports.GetStockAnalysis;
@@ -71,6 +72,16 @@ namespace NorthwindAPI.Api.Controllers
         public async Task<IActionResult> GetTopSellingProducts(
             [FromQuery] GetTopSellingProductsQuery query,
             CancellationToken cancellationToken)
+        {
+            var result = await _mediator.Send(query, cancellationToken);
+            return Ok(result);
+        }
+
+
+        [HttpGet("GetSalesByProduct", Name = "GetSalesByProduct")]
+        public async Task<IActionResult> GetSalesByProduct(
+             [FromQuery] GetSalesByProductQuery query,
+             CancellationToken cancellationToken)
         {
             var result = await _mediator.Send(query, cancellationToken);
             return Ok(result);

@@ -3,6 +3,7 @@ using NorthwindApi.Application.Common.BusinessRules;
 using NorthwindApi.Application.Common.Helpers;
 using NorthwindApi.Application.Features.Reports.GetCustomerRFM;
 using NorthwindApi.Application.Features.Reports.GetEmployeePerformance;
+using NorthwindApi.Application.Features.Reports.GetSalesByProduct;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
 using NorthwindApi.Application.Features.Reports.GetStockAnalysis;
@@ -714,6 +715,87 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                     TrendDirection = trendDirection
                 };
             }).ToList();
+        }
+
+
+        public async Task<List<GetSalesByProductResponse>> GetSalesByProductAsync(
+       GetSalesByProductQuery request,
+       CancellationToken cancellationToken)
+        {
+            var query = _unitOfWork.Repository<Orders>()
+                .GetAll()
+                .AsNoTracking()
+                .Where(o => o.OrderDate.HasValue);
+
+
+            if (request.Year.HasValue && request.Month.HasValue)
+            {
+                var start = new DateTime(request.Year.Value, request.Month.Value, 1);
+                var end = start.AddMonths(1);
+                query = query.Where(o => o.OrderDate >= start && o.OrderDate < end);
+            }
+            else if (request.Year.HasValue)
+            {
+                var start = new DateTime(request.Year.Value, 1, 1);
+                var end = start.AddYears(1);
+                query = query.Where(o => o.OrderDate >= start && o.OrderDate < end);
+            }
+
+            var salesQuery = query
+                .SelectMany(o => o.OrderDetails)
+                .Where(od =>
+                    !request.CategoryId.HasValue ||
+                    od.Product!.CategoryId == request.CategoryId.Value)
+                .Select(od => new
+                {
+                    od.OrderId,
+                    od.ProductId,
+                    ProductName = od.Product!.ProductName,
+                    CategoryId = od.Product.CategoryId,
+                    CategoryName = od.Product.Category!.CategoryName,
+                    SupplierName = od.Product.Supplier != null
+                        ? od.Product.Supplier.CompanyName
+                        : null,
+                    UnitPrice = od.Product.UnitPrice,
+                    UnitsInStock = od.Product.UnitsInStock,
+
+                    Quantity = (int)od.Quantity,
+                    Revenue =
+                        (decimal)od.Quantity *
+                        od.UnitPrice *
+                        (1 - (decimal)od.Discount)
+                });
+
+            return await salesQuery
+                .GroupBy(x => new
+                {
+                    x.ProductId,
+                    x.ProductName,
+                    x.CategoryId,
+                    x.CategoryName,
+                    x.SupplierName,
+                    x.UnitPrice,
+                    x.UnitsInStock
+                })
+                .Select(g => new GetSalesByProductResponse
+                {
+                    ProductId = g.Key.ProductId,
+                    ProductName = g.Key.ProductName,
+                    CategoryId = g.Key.CategoryId,
+                    CategoryName = g.Key.CategoryName,
+                    SupplierName = g.Key.SupplierName,
+                    UnitPrice = g.Key.UnitPrice,
+                    UnitsInStock = g.Key.UnitsInStock,
+
+                    TotalOrders = g.Select(x => x.OrderId).Distinct().Count(),
+                    TotalQuantitySold = g.Sum(x => x.Quantity),
+                    TotalRevenue = g.Sum(x => x.Revenue),
+                    AverageOrderValue = g.Average(x => x.Revenue)
+                })
+                .OrderByDescending(x => x.TotalRevenue)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync(cancellationToken);
         }
 
 
