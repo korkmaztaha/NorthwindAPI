@@ -3,6 +3,7 @@ using NorthwindApi.Application.Common.BusinessRules;
 using NorthwindApi.Application.Common.Helpers;
 using NorthwindApi.Application.Features.Reports.GetCustomerRFM;
 using NorthwindApi.Application.Features.Reports.GetEmployeePerformance;
+using NorthwindApi.Application.Features.Reports.GetSalesByEmployee;
 using NorthwindApi.Application.Features.Reports.GetSalesByProduct;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByCategory;
 using NorthwindApi.Application.Features.Reports.GetSalesReport.GetSalesByPeriod;
@@ -791,6 +792,71 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                     TotalQuantitySold = g.Sum(x => x.Quantity),
                     TotalRevenue = g.Sum(x => x.Revenue),
                     AverageOrderValue = g.Average(x => x.Revenue)
+                })
+                .OrderByDescending(x => x.TotalRevenue)
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<List<GetSalesByEmployeeResponse>> GetSalesByEmployeeAsync(
+        GetSalesByEmployeeQuery request,
+        CancellationToken cancellationToken)
+        {
+            var orderQuery = _unitOfWork.Repository<Orders>()
+                .GetAll()
+                .AsNoTracking()
+                .Where(o => o.OrderDate.HasValue && o.EmployeeId.HasValue);
+
+            if (request.Year.HasValue && request.Month.HasValue)
+            {
+                var start = new DateTime(request.Year.Value, request.Month.Value, 1);
+                var end = start.AddMonths(1);
+                orderQuery = orderQuery.Where(o => o.OrderDate >= start && o.OrderDate < end);
+            }
+            else if (request.Year.HasValue)
+            {
+                var start = new DateTime(request.Year.Value, 1, 1);
+                var end = start.AddYears(1);
+                orderQuery = orderQuery.Where(o => o.OrderDate >= start && o.OrderDate < end);
+            }
+
+            if (request.EmployeeId.HasValue)
+                orderQuery = orderQuery.Where(o => o.EmployeeId == request.EmployeeId.Value);
+
+            return await orderQuery
+                .GroupBy(o => new
+                {
+                    o.Employee!.EmployeeId,
+                    o.Employee.FirstName,
+                    o.Employee.LastName,
+                    o.Employee.Title,
+                    ReportsToName = o.Employee.ReportsToNavigation != null
+                        ? o.Employee.ReportsToNavigation.FirstName + " " + o.Employee.ReportsToNavigation.LastName
+                        : null
+                })
+                .Select(g => new GetSalesByEmployeeResponse
+                {
+                    EmployeeId = g.Key.EmployeeId,
+                    FullName = g.Key.FirstName + " " + g.Key.LastName,
+                    Title = g.Key.Title,
+                    ReportsToName = g.Key.ReportsToName,
+                    TotalOrders = g.Count(),
+                    TotalItemsSold = g.SelectMany(o => o.OrderDetails)
+                        .Sum(od => (int)od.Quantity),
+                    TotalRevenue = g.SelectMany(o => o.OrderDetails)
+                        .Sum(od => (decimal)(od.Quantity * od.UnitPrice * (decimal)(1 - od.Discount))),
+                    AverageOrderValue = g.SelectMany(o => o.OrderDetails)
+                        .Average(od => (decimal)(od.Quantity * od.UnitPrice * (decimal)(1 - od.Discount))),
+                    TopCategory = g.SelectMany(o => o.OrderDetails)
+                        .GroupBy(od => od.Product!.Category!.CategoryName)
+                        .OrderByDescending(cg => cg.Sum(od => od.Quantity))
+                        .Select(cg => cg.Key)
+                        .FirstOrDefault(),
+                    TopCustomer = g.GroupBy(o => o.Customer!.CompanyName)
+                        .OrderByDescending(cg => cg.Count())
+                        .Select(cg => cg.Key)
+                        .FirstOrDefault()
                 })
                 .OrderByDescending(x => x.TotalRevenue)
                 .Skip((request.PageNumber - 1) * request.PageSize)
