@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using NorthwindApi.Application.Features.Customers.Commands.CreateCustomer;
 using NorthwindApi.Application.Features.Customers.Commands.UpdateCustomer;
 using NorthwindApi.Application.Features.Customers.Queries.GetCustomerOrderSummary;
@@ -19,16 +20,18 @@ namespace NorthwindApi.Persistence.Services.EntityServices
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICustomerBusinessRules _businessRules;
+        private readonly IMapper _mapper;
 
-        public CustomerService(IUnitOfWork unitOfWork, ICustomerBusinessRules businessRules)
+        public CustomerService(IUnitOfWork unitOfWork, ICustomerBusinessRules businessRules, IMapper mapper)
         {
             _unitOfWork = unitOfWork;
             _businessRules = businessRules;
+            _mapper = mapper;
         }
 
         public async Task<List<GetCustomersQueryResponse>> GetAllAsync(
-            GetCustomersQuery request,
-            CancellationToken cancellationToken)
+     GetCustomersQuery request,
+     CancellationToken cancellationToken)
         {
             var query = _unitOfWork.Repository<Customer>().GetAll();
 
@@ -44,28 +47,18 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             if (!string.IsNullOrEmpty(request.CompanyName))
                 query = query.Where(x => x.CompanyName.Contains(request.CompanyName));
 
-            return await query
+            var customers = await query
                 .OrderBy(x => x.CompanyName)
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
-                .Select(x => new GetCustomersQueryResponse
-                {
-                    CustomerId = x.CustomerId,
-                    CompanyName = x.CompanyName,
-                    ContactName = x.ContactName,
-                    ContactTitle = x.ContactTitle,
-                    City = x.City,
-                    Country = x.Country,
-                    Phone = x.Phone,
-                    Fax = x.Fax,
-                    Address = x.Address
-                })
                 .ToListAsync(cancellationToken);
+
+            return _mapper.Map<List<GetCustomersQueryResponse>>(customers);
         }
 
         public async Task<CreateCustomerCommandResponse> CreateAsync(
-            CreateCustomerCommand request,
-            CancellationToken cancellationToken)
+    CreateCustomerCommand request,
+    CancellationToken cancellationToken)
         {
             var exists = await _unitOfWork.Repository<Customer>()
                 .GetAll()
@@ -74,18 +67,9 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             if (exists)
                 throw new InvalidOperationException($"{request.CustomerId} ID'li müşteri zaten mevcut.");
 
-            var customer = new Customer
-            {
-                CustomerId = request.CustomerId.ToUpper(),
-                CompanyName = request.CompanyName,
-                ContactName = request.ContactName,
-                ContactTitle = request.ContactTitle,
-                Address = request.Address,
-                City = request.City,
-                Country = request.Country,
-                Phone = request.Phone,
-                Fax = request.Fax
-            };
+            
+            var customer = _mapper.Map<Customer>(request);
+            customer.CustomerId = request.CustomerId.ToUpper();
 
             await _unitOfWork.Repository<Customer>().AddAsync(customer, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -99,8 +83,8 @@ namespace NorthwindApi.Persistence.Services.EntityServices
         }
 
         public async Task<UpdateCustomerCommandResponse> UpdateAsync(
-            UpdateCustomerCommand request,
-            CancellationToken cancellationToken)
+     UpdateCustomerCommand request,
+     CancellationToken cancellationToken)
         {
             var customer = await _unitOfWork.Repository<Customer>()
                 .GetAll()
@@ -109,14 +93,8 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             if (customer is null)
                 throw new KeyNotFoundException($"{request.CustomerId} ID'li müşteri bulunamadı.");
 
-            customer.CompanyName = request.CompanyName;
-            customer.ContactName = request.ContactName;
-            customer.ContactTitle = request.ContactTitle;
-            customer.Address = request.Address;
-            customer.City = request.City;
-            customer.Country = request.Country;
-            customer.Phone = request.Phone;
-            customer.Fax = request.Fax;
+            // AutoMapper ile Command → Entity (mevcut entity'yi güncelle)
+            _mapper.Map(request, customer);
 
             _unitOfWork.Repository<Customer>().Update(customer);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -128,7 +106,6 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 UpdatedAt = DateTime.UtcNow
             };
         }
-
         public async Task<bool> DeleteAsync(
             string customerId,
             CancellationToken cancellationToken)
