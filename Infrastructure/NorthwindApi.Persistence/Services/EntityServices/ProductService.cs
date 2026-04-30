@@ -2,32 +2,33 @@
 using NorthwindApi.Application.Features.Products.Commands.CreateProduct;
 using NorthwindApi.Application.Features.Products.Commands.UpdateProduct;
 using NorthwindApi.Application.Features.Products.Queries.GetProducts;
+using NorthwindApi.Application.Interfaces.BusinessRules;
 using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Application.Interfaces.Services;
 using NorthwindApi.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace NorthwindApi.Persistence.Services.EntityServices
 {
-
     public class ProductService : IProductService
     {
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IProductBusinessRules _productBusinessRules;
 
-        public ProductService(IUnitOfWork unitOfWork)
+        public ProductService(
+            IUnitOfWork unitOfWork,
+            IProductBusinessRules productBusinessRules)
         {
             _unitOfWork = unitOfWork;
+            _productBusinessRules = productBusinessRules;
         }
 
         public async Task<List<GetProductsQueryResponse>> GetAllAsync(
             GetProductsQuery request,
             CancellationToken cancellationToken)
         {
-            var query = _unitOfWork.Repository<Products>().GetAll().AsNoTracking();
+            var query = _unitOfWork.Repository<Products>()
+                .GetAll()
+                .AsNoTracking();
 
             if (!string.IsNullOrEmpty(request.ProductName))
                 query = query.Where(x => x.ProductName.Contains(request.ProductName));
@@ -74,12 +75,10 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             CreateProductCommand request,
             CancellationToken cancellationToken)
         {
-            var exists = await _unitOfWork.Repository<Products>()
-                .GetAll()
-                .AnyAsync(x => x.ProductName == request.ProductName, cancellationToken);
-
-            if (exists)
-                throw new InvalidOperationException($"{request.ProductName} adlı ürün zaten mevcut.");
+            
+            await _productBusinessRules.ProductNameMustBeUniqueAsync(
+                request.ProductName,
+                cancellationToken);
 
             var product = new Products
             {
@@ -94,7 +93,9 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 Discontinued = request.Discontinued
             };
 
-            await _unitOfWork.Repository<Products>().AddAsync(product, cancellationToken);
+            await _unitOfWork.Repository<Products>()
+                .AddAsync(product, cancellationToken);
+
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return new CreateProductCommandResponse
@@ -115,6 +116,12 @@ namespace NorthwindApi.Persistence.Services.EntityServices
 
             if (product is null)
                 throw new KeyNotFoundException($"{request.ProductId} ID'li ürün bulunamadı.");
+
+        
+            await _productBusinessRules.ProductNameMustBeUniqueForUpdateAsync(
+                request.ProductId,
+                request.ProductName,
+                cancellationToken);
 
             product.ProductName = request.ProductName;
             product.SupplierId = request.SupplierId;
@@ -137,7 +144,9 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             };
         }
 
-        public async Task<bool> DeleteAsync(int productId, CancellationToken cancellationToken)
+        public async Task<bool> DeleteAsync(
+            int productId,
+            CancellationToken cancellationToken)
         {
             var product = await _unitOfWork.Repository<Products>()
                 .GetAll()

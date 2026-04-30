@@ -3,11 +3,6 @@ using NorthwindApi.Application.Features.Orders.Commands.CreateOrder;
 using NorthwindApi.Application.Interfaces.BusinessRules;
 using NorthwindApi.Application.Interfaces.Infrastructure;
 using NorthwindApi.Domain.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace NorthwindApi.Persistence.BusinessRules
 {
@@ -19,8 +14,6 @@ namespace NorthwindApi.Persistence.BusinessRules
         {
             _unitOfWork = unitOfWork;
         }
-
-      
 
         public async Task ProductsMustExistAsync(
             List<int> productIds,
@@ -65,6 +58,7 @@ namespace NorthwindApi.Persistence.BusinessRules
             CancellationToken cancellationToken)
         {
             var productIds = items.Select(x => x.ProductId).ToList();
+
             var products = await _unitOfWork.Repository<Products>()
                 .GetAll()
                 .Where(x => productIds.Contains(x.ProductId))
@@ -85,6 +79,20 @@ namespace NorthwindApi.Persistence.BusinessRules
                 throw new InvalidOperationException($"{productName} adlı ürün zaten mevcut.");
         }
 
+       
+        public async Task ProductNameMustBeUniqueForUpdateAsync(
+            int productId,
+            string productName,
+            CancellationToken cancellationToken)
+        {
+            var exists = await _unitOfWork.Repository<Products>()
+                .GetAll()
+                .AnyAsync(x => x.ProductName == productName && x.ProductId != productId, cancellationToken);
+
+            if (exists)
+                throw new InvalidOperationException($"{productName} adlı başka bir ürün zaten mevcut.");
+        }
+
         private Task StockMustBeSufficientAsync(
             List<CreateOrderItemCommand> items,
             CancellationToken cancellationToken,
@@ -93,6 +101,7 @@ namespace NorthwindApi.Persistence.BusinessRules
             foreach (var item in items)
             {
                 var product = products.First(x => x.ProductId == item.ProductId);
+
                 if (product.UnitsInStock < item.Quantity)
                     throw new InvalidOperationException(
                         $"{product.ProductName} için yeterli stok yok. Mevcut: {product.UnitsInStock}, İstenen: {item.Quantity}");

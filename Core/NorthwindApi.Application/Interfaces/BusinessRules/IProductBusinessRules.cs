@@ -14,5 +14,6 @@ namespace NorthwindApi.Application.Interfaces.BusinessRules
         Task<List<Products>> GetAndValidateProductsAsync(List<CreateOrderItemCommand> items, CancellationToken cancellationToken);
         Task StockMustBeSufficientAsync(List<CreateOrderItemCommand> items, CancellationToken cancellationToken);
         Task ProductNameMustBeUniqueAsync(string productName, CancellationToken cancellationToken);
+        Task ProductNameMustBeUniqueForUpdateAsync(int productId,string productName,CancellationToken cancellationToken);
     }
 }

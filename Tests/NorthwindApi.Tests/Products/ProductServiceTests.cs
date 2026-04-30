@@ -4,8 +4,8 @@ using Moq;
 using NorthwindApi.Application.Features.Products.Commands.CreateProduct;
 using NorthwindApi.Application.Features.Products.Commands.UpdateProduct;
 using NorthwindApi.Application.Features.Products.Queries.GetProducts;
+using NorthwindApi.Application.Interfaces.BusinessRules;
 using NorthwindApi.Domain.Entities;
-using ProductEntity = NorthwindApi.Domain.Entities.Products;
 using NorthwindApi.Persistence.Services.EntityServices;
 using NorthwindApi.Tests.Common;
 using System;
@@ -13,16 +13,21 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using ProductEntity = NorthwindApi.Domain.Entities.Products;
 
 namespace NorthwindApi.Tests.Products
 {
     public class ProductServiceTests : TestBase
     {
+        private readonly Mock<IProductBusinessRules> _mockBusinessRules;
         private readonly ProductService _productService;
 
         public ProductServiceTests()
         {
-            _productService = new ProductService(MockUnitOfWork.Object);
+            _mockBusinessRules = new Mock<IProductBusinessRules>();
+            _productService = new ProductService(
+                MockUnitOfWork.Object, 
+                _mockBusinessRules.Object);
         }
 
         // ───────────── GetAll Tests ─────────────
@@ -241,16 +246,11 @@ namespace NorthwindApi.Tests.Products
         public async Task CreateAsync_ShouldThrowException_WhenProductAlreadyExists()
         {
             // Arrange
-            var productsList = new List<ProductEntity>
-            {
-                new() { ProductId = 1, ProductName = "Existing Product", UnitPrice = 100m, UnitsInStock = 10, CategoryId = 1, SupplierId = 1 }
-            };
-
-            var mockDbSet = productsList.AsQueryable().BuildMock();
-
-            MockUnitOfWork
-                .Setup(x => x.Repository<ProductEntity>().GetAll())
-                .Returns(mockDbSet);
+            _mockBusinessRules
+                .Setup(x => x.ProductNameMustBeUniqueAsync(
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new InvalidOperationException("Existing Product"));
 
             var command = new CreateProductCommand
             {
@@ -264,7 +264,8 @@ namespace NorthwindApi.Tests.Products
             var act = async () => await _productService.CreateAsync(command, CancellationToken.None);
 
             // Assert
-            await act.Should().ThrowAsync<InvalidOperationException>()
+            await act.Should()
+                .ThrowAsync<InvalidOperationException>()
                 .WithMessage("*Existing Product*");
         }
 
