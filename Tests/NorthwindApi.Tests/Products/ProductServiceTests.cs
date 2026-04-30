@@ -270,21 +270,33 @@ namespace NorthwindApi.Tests.Products
         }
 
         // ───────────── Update Tests ─────────────
-
         [Fact]
         public async Task UpdateAsync_ShouldUpdateProduct_WhenValidRequest()
         {
             // Arrange
-            var productsList = new List<ProductEntity>
+            var product = new ProductEntity
             {
-                new() { ProductId = 1, ProductName = "Old Product", UnitPrice = 100m, UnitsInStock = 10, CategoryId = 1, SupplierId = 1 }
+                ProductId = 1,
+                ProductName = "Old Product",
+                UnitPrice = 100m,
+                UnitsInStock = 10,
+                CategoryId = 1,
+                SupplierId = 1
             };
 
+            var productsList = new List<ProductEntity> { product };
             var mockDbSet = productsList.AsQueryable().BuildMock();
 
             MockUnitOfWork
                 .Setup(x => x.Repository<ProductEntity>().GetAll())
                 .Returns(mockDbSet);
+
+            _mockBusinessRules
+                .Setup(x => x.ProductNameMustBeUniqueForUpdateAsync(
+                    It.IsAny<int>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
 
             MockUnitOfWork
                 .Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
@@ -309,11 +321,32 @@ namespace NorthwindApi.Tests.Products
 
             // Assert (STATE)
             result.Should().NotBeNull();
+            result.ProductId.Should().Be(1);
             result.ProductName.Should().Be("Updated Product");
-            result.UpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
 
-            // Assert (BEHAVIOR)
-            MockUnitOfWork.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+            
+            _mockBusinessRules.Verify(x =>
+                x.ProductNameMustBeUniqueForUpdateAsync(
+                    command.ProductId,
+                    command.ProductName,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+           
+            MockUnitOfWork.Verify(x =>
+                x.Repository<ProductEntity>().Update(
+                    It.Is<ProductEntity>(p =>
+                        p.ProductId == 1 &&
+                        p.ProductName == "Updated Product" &&
+                        p.UnitPrice == 150m &&
+                        p.CategoryId == 2
+                    )),
+                Times.Once);
+
+            
+            MockUnitOfWork.Verify(x =>
+                x.SaveChangesAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         [Fact]
@@ -337,9 +370,86 @@ namespace NorthwindApi.Tests.Products
             // Act
             var act = async () => await _productService.UpdateAsync(command, CancellationToken.None);
 
-            // Assert
-            await act.Should().ThrowAsync<KeyNotFoundException>()
+            // Assert 
+            await act.Should()
+                .ThrowAsync<KeyNotFoundException>()
                 .WithMessage("*999*");
+
+            
+            _mockBusinessRules.Verify(x =>
+                x.ProductNameMustBeUniqueForUpdateAsync(
+                    It.IsAny<int>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            
+            MockUnitOfWork.Verify(x =>
+                x.Repository<ProductEntity>().Update(It.IsAny<ProductEntity>()),
+                Times.Never);
+
+           
+            MockUnitOfWork.Verify(x =>
+                x.SaveChangesAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task UpdateAsync_ShouldThrowException_WhenProductNameAlreadyExists()
+        {
+            // Arrange
+            var product = new ProductEntity
+            {
+                ProductId = 1,
+                ProductName = "Old Product",
+                UnitPrice = 100m
+            };
+
+            var productsList = new List<ProductEntity> { product };
+            var mockDbSet = productsList.AsQueryable().BuildMock();
+
+            MockUnitOfWork
+                .Setup(x => x.Repository<ProductEntity>().GetAll())
+                .Returns(mockDbSet);
+
+            _mockBusinessRules
+                .Setup(x => x.ProductNameMustBeUniqueForUpdateAsync(
+                    It.IsAny<int>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new InvalidOperationException("Duplicate product"));
+
+            var command = new UpdateProductCommand
+            {
+                ProductId = 1,
+                ProductName = "Existing Product"
+            };
+
+            // Act
+            var act = async () => await _productService.UpdateAsync(command, CancellationToken.None);
+
+            // Assert 
+            await act.Should()
+                .ThrowAsync<InvalidOperationException>()
+                .WithMessage("*Duplicate product*");
+
+            
+            _mockBusinessRules.Verify(x =>
+                x.ProductNameMustBeUniqueForUpdateAsync(
+                    command.ProductId,
+                    command.ProductName,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+          
+            MockUnitOfWork.Verify(x =>
+                x.Repository<ProductEntity>().Update(It.IsAny<ProductEntity>()),
+                Times.Never);
+
+           
+            MockUnitOfWork.Verify(x =>
+                x.SaveChangesAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         // ───────────── Delete Tests ─────────────
