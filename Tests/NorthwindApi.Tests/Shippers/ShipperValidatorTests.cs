@@ -1,44 +1,47 @@
 using FluentValidation.TestHelper;
 using NorthwindApi.Application.Features.Shippers.Commands.CreateShipper;
-using NorthwindApi.Application.Features.Shippers.Commands.DeleteShipper;
 using NorthwindApi.Application.Features.Shippers.Commands.UpdateShipper;
+using NorthwindApi.Application.Features.Shippers.Commands.DeleteShipper;
 using NorthwindApi.Application.Features.Shippers.Queries.GetShippers;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace NorthwindApi.Tests.Shippers
-{
+namespace NorthwindApi.Tests.Shippers;
+
     public class ShipperValidatorTests
     {
-        private readonly CreateShipperCommandValidator _createValidator;
-        private readonly UpdateShipperCommandValidator _updateValidator;
-        private readonly DeleteShipperCommandValidator _deleteValidator;
-        private readonly GetShippersQueryValidator _getValidator;
+        private readonly CreateShipperCommandValidator _createValidator = new();
+        private readonly UpdateShipperCommandValidator _updateValidator = new();
+        private readonly DeleteShipperCommandValidator _deleteValidator = new();
+        private readonly GetShippersQueryValidator _getValidator = new();
 
-        public ShipperValidatorTests()
-        {
-            _createValidator = new CreateShipperCommandValidator();
-            _updateValidator = new UpdateShipperCommandValidator();
-            _deleteValidator = new DeleteShipperCommandValidator();
-            _getValidator = new GetShippersQueryValidator();
-        }
+        // ───────────────── CREATE ─────────────────
 
         [Fact]
         public void CreateShipper_ShouldNotHaveError_WhenValidRequest()
         {
-            var command = new CreateShipperCommand { CompanyName = "FastShip", Phone = "111-222" };
+            var command = new CreateShipperCommand
+            {
+                CompanyName = "FastShip",
+                Phone = "111-222"
+            };
+
             var result = _createValidator.TestValidate(command);
+
             result.ShouldNotHaveAnyValidationErrors();
         }
 
-        [Fact]
-        public void CreateShipper_ShouldHaveError_WhenCompanyNameIsEmpty()
+        [Theory]
+        [InlineData("")]
+        [InlineData(null)]
+        [InlineData("   ")]
+        public void CreateShipper_ShouldHaveError_WhenCompanyNameIsInvalid(string companyName)
         {
-            var command = new CreateShipperCommand { CompanyName = "" };
+            var command = new CreateShipperCommand
+            {
+                CompanyName = companyName
+            };
+
             var result = _createValidator.TestValidate(command);
+
             result.ShouldHaveValidationErrorFor(x => x.CompanyName)
                 .WithErrorMessage("Company name is required.");
         }
@@ -46,44 +49,136 @@ namespace NorthwindApi.Tests.Shippers
         [Fact]
         public void CreateShipper_ShouldHaveError_WhenCompanyNameExceedsMaxLength()
         {
-            var command = new CreateShipperCommand { CompanyName = new string('A', 41) };
+            var command = new CreateShipperCommand
+            {
+                CompanyName = new string('A', 41)
+            };
+
             var result = _createValidator.TestValidate(command);
+
             result.ShouldHaveValidationErrorFor(x => x.CompanyName)
                 .WithErrorMessage("Company name must not exceed 40 characters.");
         }
 
+        // ───────────────── UPDATE ─────────────────
+
         [Fact]
         public void UpdateShipper_ShouldNotHaveError_WhenValidRequest()
         {
-            var command = new UpdateShipperCommand { ShipperId = 1, CompanyName = "NewShip", Phone = "000" };
+            var command = new UpdateShipperCommand
+            {
+                ShipperId = 1,
+                CompanyName = "NewShip",
+                Phone = "000"
+            };
+
             var result = _updateValidator.TestValidate(command);
+
             result.ShouldNotHaveAnyValidationErrors();
         }
 
-        [Fact]
-        public void UpdateShipper_ShouldHaveError_WhenShipperIdIsZero()
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        [InlineData(-100)]
+        public void UpdateShipper_ShouldHaveError_WhenShipperIdIsInvalid(int shipperId)
         {
-            var command = new UpdateShipperCommand { ShipperId = 0, CompanyName = "X" };
+            var command = new UpdateShipperCommand
+            {
+                ShipperId = shipperId,
+                CompanyName = "ValidName"
+            };
+
             var result = _updateValidator.TestValidate(command);
+
             result.ShouldHaveValidationErrorFor(x => x.ShipperId)
                 .WithErrorMessage("Shipper ID must be greater than 0.");
         }
 
-        [Fact]
-        public void DeleteShipper_ShouldHaveError_WhenShipperIdIsNegative()
+        // ───────────────── DELETE ─────────────────
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        [InlineData(-10)]
+        public void DeleteShipper_ShouldHaveError_WhenShipperIdIsInvalid(int shipperId)
         {
-            var command = new DeleteShipperCommand { ShipperId = -1 };
+            var command = new DeleteShipperCommand
+            {
+                ShipperId = shipperId
+            };
+
             var result = _deleteValidator.TestValidate(command);
+
             result.ShouldHaveValidationErrorFor(x => x.ShipperId)
                 .WithErrorMessage("Shipper ID must be greater than 0.");
         }
+
+        [Theory]
+        [InlineData(1)]
+        [InlineData(10)]
+        [InlineData(999)]
+        public void DeleteShipper_ShouldNotHaveError_WhenShipperIdIsValid(int shipperId)
+        {
+            var command = new DeleteShipperCommand
+            {
+                ShipperId = shipperId
+            };
+
+            var result = _deleteValidator.TestValidate(command);
+
+            result.ShouldNotHaveValidationErrorFor(x => x.ShipperId);
+        }
+
+        // ───────────────── GET ─────────────────
 
         [Fact]
         public void GetShippers_ShouldNotHaveError_WhenValidRequest()
         {
-            var query = new GetShippersQuery { PageNumber = 1, PageSize = 10 };
+            var query = new GetShippersQuery
+            {
+                PageNumber = 1,
+                PageSize = 10
+            };
+
             var result = _getValidator.TestValidate(query);
+
             result.ShouldNotHaveAnyValidationErrors();
         }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        [InlineData(-100)]
+        public void GetShippers_ShouldHaveError_WhenPageNumberIsInvalid(int pageNumber)
+        {
+            var query = new GetShippersQuery
+            {
+                PageNumber = pageNumber,
+                PageSize = 10
+            };
+
+            var result = _getValidator.TestValidate(query);
+
+            result.ShouldHaveValidationErrorFor(x => x.PageNumber)
+                .WithErrorMessage("Page number must be greater than 0.");
+        }
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(101)]
+        [InlineData(-1)]
+        public void GetShippers_ShouldHaveError_WhenPageSizeIsInvalid(int pageSize)
+        {
+            var query = new GetShippersQuery
+            {
+                PageNumber = 1,
+                PageSize = pageSize
+            };
+
+            var result = _getValidator.TestValidate(query);
+
+            result.ShouldHaveValidationErrorFor(x => x.PageSize)
+                .WithErrorMessage("Page size must be between 1 and 100.");
+        }
     }
-}
