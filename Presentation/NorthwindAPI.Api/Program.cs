@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+ï»¿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NorthwindApi.Application;
@@ -105,12 +105,12 @@ app.MapControllers();
 
 try
 {
-    Log.Information("Uygulama baþlatýlýyor...");
+    Log.Information("Uygulama baÅŸlatÄ±lÄ±yor...");
     app.Run();
 }
 catch (Exception ex)
 {
-    Log.Fatal(ex, "Uygulama baþlatýlamadý!");
+    Log.Fatal(ex, "Uygulama baÅŸlatÄ±lamadÄ±!");
 }
 finally
 {
