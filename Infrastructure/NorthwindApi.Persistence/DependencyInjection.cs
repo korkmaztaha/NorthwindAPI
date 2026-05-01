@@ -10,6 +10,7 @@ using NorthwindApi.Persistence.Contexts;
 using NorthwindApi.Persistence.Repositories;
 using NorthwindApi.Persistence.Services;
 using NorthwindApi.Persistence.Services.EntityServices;
+using StackExchange.Redis;
 
 namespace NorthwindApi.Persistence;
 
@@ -28,6 +29,7 @@ public static class DependencyInjection
             options.Configuration = configuration["Redis:ConnectionString"];
             options.InstanceName = configuration["Redis:InstanceName"];
         });
+       
 
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
@@ -49,6 +51,11 @@ public static class DependencyInjection
         services.AddScoped<IEmployeeBusinessRules, EmployeeBusinessRules>();
         services.AddScoped<IEmployeeService, EmployeeService>();
         services.AddScoped<IReportService, ReportService>();
+        services.AddSingleton<IConnectionMultiplexer>(sp =>
+        {
+            var config = configuration["Redis:ConnectionString"];
+            return ConnectionMultiplexer.Connect(config!);
+        });
         services.AddScoped<ITokenBlacklistService, TokenBlacklistService>();
 
         return services;
