@@ -49,6 +49,7 @@ public static class DependencyInjection
         services.AddScoped<IEmployeeBusinessRules, EmployeeBusinessRules>();
         services.AddScoped<IEmployeeService, EmployeeService>();
         services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<ITokenBlacklistService, TokenBlacklistService>();
 
         return services;
     }

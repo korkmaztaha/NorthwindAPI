@@ -9,7 +9,7 @@ using NorthwindApi.Application.Features.Employees.Queries.GetEmployees;
 
 namespace NorthwindAPI.Api.Controllers
 {
-    //[Authorize]
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class EmployeesController : ControllerBase

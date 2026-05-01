@@ -1,6 +1,8 @@
 ﻿using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NorthwindApi.Application.Features.Auth.Commands.Login;
+using NorthwindApi.Application.Features.Auth.Commands.Logout;
 
 namespace NorthwindAPI.Api.Controllers;
 
@@ -20,6 +22,13 @@ public class AuthController : ControllerBase
     {
         var result = await _mediator.Send(command);
         return Ok(result);
+    }
+    [Authorize]
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] LogoutCommand command)
+    {
+        await _mediator.Send(command);
+        return NoContent();
     }
 
     //[HttpGet("hash-password")]

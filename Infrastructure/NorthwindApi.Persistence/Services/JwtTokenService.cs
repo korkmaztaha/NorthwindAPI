@@ -26,6 +26,7 @@ public class JwtTokenService : IJwtTokenService
 
         var claims = new[]
         {
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(ClaimTypes.NameIdentifier, userId),
             new Claim(ClaimTypes.Email, email),
             new Claim(ClaimTypes.Role, role)
@@ -55,6 +56,20 @@ public class JwtTokenService : IJwtTokenService
 
     public bool VerifyPassword(string password, string passwordHash)
     => BCrypt.Net.BCrypt.Verify(password, passwordHash);
+
+    public string? GetJtiFromToken(string token)
+    {
+        var handler = new JwtSecurityTokenHandler();
+        var jwtToken = handler.ReadJwtToken(token);
+        return jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
+    }
+
+    public DateTime? GetExpiryFromToken(string token)
+    {
+        var handler = new JwtSecurityTokenHandler();
+        var jwtToken = handler.ReadJwtToken(token);
+        return jwtToken.ValidTo;
+    }
 
 
 }

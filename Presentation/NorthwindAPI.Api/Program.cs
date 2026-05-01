@@ -88,6 +88,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 var app = builder.Build();
 app.UseMiddleware<ExceptionMiddleware>();
+app.UseMiddleware<TokenBlacklistMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseSerilogRequestLogging();
