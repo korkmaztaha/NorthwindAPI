@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using NorthwindApi.Application.Features.Categories.Commands.CreateCategory;
 using NorthwindApi.Application.Features.Categories.Commands.DeleteCategory;
 using NorthwindApi.Application.Features.Categories.Commands.UpdateCategory;
@@ -10,8 +11,9 @@ using NorthwindApi.Application.Features.Categories.Queries.GetCategoryDetail;
 
 namespace NorthwindAPI.Api.Controllers
 {
-    //[Authorize]
+    [Authorize]
     [ApiController]
+    [EnableRateLimiting("GeneralPolicy")]
     [Route("api/[controller]")]
     public class CategoriesController : ControllerBase
     {
