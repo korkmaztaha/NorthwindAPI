@@ -19,23 +19,33 @@ namespace NorthwindApi.Persistence.Services.EntityServices
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICategoryBusinessRules _businessRules;
+        private readonly ICacheService _cacheService;
 
-        public CategoryService(IUnitOfWork unitOfWork, ICategoryBusinessRules businessRules)
+        public CategoryService(IUnitOfWork unitOfWork, ICategoryBusinessRules businessRules, ICacheService cacheService)
         {
             _unitOfWork = unitOfWork;
             _businessRules = businessRules;
+            _cacheService = cacheService;
         }
 
         public async Task<List<GetCategoriesQueryResponse>> GetAllAsync(
             GetCategoriesQuery request,
             CancellationToken cancellationToken)
         {
+            var cacheKey = $"categories:{request.PageNumber}:{request.PageSize}:{request.CategoryName}";
+
+            var cached = await _cacheService.GetAsync<List<GetCategoriesQueryResponse>>(cacheKey);
+            if (cached != null)
+            {
+                Console.WriteLine("Category served from CACHE");
+                return cached;
+            }
             var query = _unitOfWork.Repository<Categories>().GetAll();
 
             if (!string.IsNullOrEmpty(request.CategoryName))
                 query = query.Where(x => x.CategoryName.Contains(request.CategoryName));
 
-            return await query
+            var result = await query
                 .OrderBy(x => x.CategoryName)
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
@@ -47,6 +57,10 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                     TotalProducts = x.Products.Count
                 })
                 .ToListAsync(cancellationToken);
+
+            await _cacheService.SetAsync(cacheKey, result, TimeSpan.FromMinutes(5));
+
+            return result;
         }
 
         public async Task<GetCategoryDetailQueryResponse> GetDetailAsync(
