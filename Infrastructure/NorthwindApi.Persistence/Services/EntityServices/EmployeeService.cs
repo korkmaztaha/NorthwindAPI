@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using NorthwindApi.Application.Features.Employees.Commands.CreateEmployee;
 using NorthwindApi.Application.Features.Employees.Commands.DeleteEmployee;
 using NorthwindApi.Application.Features.Employees.Commands.UpdateEmployee;
@@ -30,7 +30,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             GetEmployeesQuery request,
             CancellationToken cancellationToken)
         {
-            var query = _unitOfWork.Repository<Employees>().GetAll();
+            var query = _unitOfWork.Repository<Employee>().GetAll();
 
             if (!string.IsNullOrEmpty(request.FirstName))
                 query = query.Where(e => e.FirstName.Contains(request.FirstName));
@@ -75,7 +75,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
         {
             await _businessRules.ReportsToEmployeeMustExistAsync(request.ReportsTo, cancellationToken);
 
-            var employee = new Employees
+            var employee = new Employee
             {
                 FirstName = request.FirstName,
                 LastName = request.LastName,
@@ -95,7 +95,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 PhotoPath = request.PhotoPath
             };
 
-            await _unitOfWork.Repository<Employees>().AddAsync(employee, cancellationToken);
+            await _unitOfWork.Repository<Employee>().AddAsync(employee, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return new CreateEmployeeResponse
@@ -112,7 +112,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             await _businessRules.EmployeeMustExistAsync(request.EmployeeId, cancellationToken);
             await _businessRules.ReportsToEmployeeMustExistAsync(request.ReportsTo, cancellationToken);
 
-            var employee = await _unitOfWork.Repository<Employees>()
+            var employee = await _unitOfWork.Repository<Employee>()
                 .GetAll()
                 .FirstAsync(e => e.EmployeeId == request.EmployeeId, cancellationToken);
 
@@ -133,7 +133,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             employee.ReportsTo = request.ReportsTo;
             employee.PhotoPath = request.PhotoPath;
 
-            _unitOfWork.Repository<Employees>().Update(employee);
+            _unitOfWork.Repository<Employee>().Update(employee);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
 
             return new UpdateEmployeeResponse
@@ -150,11 +150,11 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             await _businessRules.EmployeeMustExistAsync(request.EmployeeId, cancellationToken);
             await _businessRules.EmployeeHasNoOrdersAsync(request.EmployeeId, cancellationToken);
 
-            var employee = await _unitOfWork.Repository<Employees>()
+            var employee = await _unitOfWork.Repository<Employee>()
                 .GetAll()
                 .FirstAsync(e => e.EmployeeId == request.EmployeeId, cancellationToken);
 
-            _unitOfWork.Repository<Employees>().Delete(employee);
+            _unitOfWork.Repository<Employee>().Delete(employee);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
     }

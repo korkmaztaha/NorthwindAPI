@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using NorthwindApi.Application.Common.BusinessRules;
 using NorthwindApi.Application.Common.Helpers;
 using NorthwindApi.Application.Features.Reports.GetCustomerRFM;
@@ -332,7 +332,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
         GetEmployeePerformanceQuery request,
         CancellationToken cancellationToken)
         {
-            var query = _unitOfWork.Repository<Employees>().GetAll();
+            var query = _unitOfWork.Repository<Employee>().GetAll();
 
             if (request.EmployeeId.HasValue)
                 query = query.Where(e => e.EmployeeId == request.EmployeeId);
@@ -350,7 +350,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                         ? e.ReportsToNavigation.FirstName + " " + e.ReportsToNavigation.LastName
                         : null,
 
-                    // Sipariş bilgileri
+                    // Siparis bilgileri
                     TotalOrders = e.Orders
                         .Count(o => o.OrderDate.HasValue &&
                             (!request.Year.HasValue || o.OrderDate.Value.Year == request.Year) &&
@@ -384,7 +384,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                         .SelectMany(o => o.OrderDetails)
                         .Sum(od => (int)od.Quantity),
 
-                    // En çok sattığı kategori
+                    // En �ok sattigi kategori
                     TopCategory = e.Orders
                         .Where(o => o.OrderDate.HasValue &&
                             (!request.Year.HasValue || o.OrderDate.Value.Year == request.Year) &&
@@ -395,7 +395,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                         .Select(g => g.Key)
                         .FirstOrDefault(),
 
-                    // En çok sattığı müşteri
+                    // En �ok sattigi m�steri
                     TopCustomer = e.Orders
                         .Where(o => o.OrderDate.HasValue &&
                             (!request.Year.HasValue || o.OrderDate.Value.Year == request.Year) &&
@@ -405,7 +405,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                         .Select(g => g.Key)
                         .FirstOrDefault(),
 
-                    // Aylık trend
+                    // Aylik trend
                     MonthlyTrends = e.Orders
                         .Where(o => o.OrderDate.HasValue &&
                             (!request.Year.HasValue || o.OrderDate.Value.Year == request.Year))
@@ -505,19 +505,19 @@ namespace NorthwindApi.Persistence.Services.EntityServices
 
             var scored = rfmData.Select(c =>
             {
-                // Recency: az gün geçmiş = yüksek skor (ters)
+                // Recency: az g�n ge�mis = y�ksek skor (ters)
                 int rScore = c.DaysSinceLastOrder <= r20 ? 5
                     : c.DaysSinceLastOrder <= r40 ? 4
                     : c.DaysSinceLastOrder <= r60 ? 3
                     : c.DaysSinceLastOrder <= r80 ? 2 : 1;
 
-                // Frequency: çok sipariş = yüksek skor
+                // Frequency: �ok siparis = y�ksek skor
                 int fScore = c.TotalOrders >= f80 ? 5
                     : c.TotalOrders >= f60 ? 4
                     : c.TotalOrders >= f40 ? 3
                     : c.TotalOrders >= f20 ? 2 : 1;
 
-                // Monetary: çok harcama = yüksek skor
+                // Monetary: �ok harcama = y�ksek skor
                 int mScore = (double)c.TotalSpent >= m80 ? 5
                     : (double)c.TotalSpent >= m60 ? 4
                     : (double)c.TotalSpent >= m40 ? 3
@@ -627,7 +627,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
 
             if (request.Year.HasValue && request.Month.HasValue)
             {
-                // Ay bazında → önceki ay
+                // Ay bazinda ? �nceki ay
                 var prevDate = new DateTime(request.Year.Value, request.Month.Value, 1).AddMonths(-1);
                 previousOrderQuery = previousOrderQuery
                     .Where(o => o.OrderDate!.Value.Year == prevDate.Year &&
@@ -635,7 +635,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             }
             else if (request.Year.HasValue)
             {
-                // Yıl bazında → önceki yıl
+                // Yil bazinda ? �nceki yil
                 previousOrderQuery = previousOrderQuery
                     .Where(o => o.OrderDate!.Value.Year == request.Year.Value - 1);
             }

@@ -21,7 +21,7 @@ namespace NorthwindApi.Persistence.BusinessRules
 
         public async Task EmployeeMustExistAsync(int employeeId, CancellationToken cancellationToken = default)
         {
-            var exists = await _unitOfWork.Repository<Employees>()
+            var exists = await _unitOfWork.Repository<Employee>()
                 .GetAll()
                 .AnyAsync(e => e.EmployeeId == employeeId, cancellationToken);
 
@@ -33,7 +33,7 @@ namespace NorthwindApi.Persistence.BusinessRules
         {
             if (!reportsTo.HasValue) return;
 
-            var exists = await _unitOfWork.Repository<Employees>()
+            var exists = await _unitOfWork.Repository<Employee>()
                 .GetAll()
                 .AnyAsync(e => e.EmployeeId == reportsTo.Value, cancellationToken);
 

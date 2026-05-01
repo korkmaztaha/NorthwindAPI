@@ -8,7 +8,7 @@ namespace NorthwindApi.Domain.Entities;
 
 [Index("LastName", Name = "LastName")]
 [Index("PostalCode", Name = "PostalCode")]
-public partial class Employees
+public partial class Employee
 {
     [Key]
     [Column("EmployeeID")]
@@ -65,14 +65,14 @@ public partial class Employees
     public string? PhotoPath { get; set; }
 
     [InverseProperty("ReportsToNavigation")]
-    public virtual ICollection<Employees> InverseReportsToNavigation { get; set; } = new List<Employees>();
+    public virtual ICollection<Employee> InverseReportsToNavigation { get; set; } = new List<Employee>();
 
     [InverseProperty("Employee")]
     public virtual ICollection<Orders> Orders { get; set; } = new List<Orders>();
 
     [ForeignKey("ReportsTo")]
     [InverseProperty("InverseReportsToNavigation")]
-    public virtual Employees? ReportsToNavigation { get; set; }
+    public virtual Employee? ReportsToNavigation { get; set; }
 
     [ForeignKey("EmployeeId")]
     [InverseProperty("Employee")]

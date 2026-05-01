@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using NorthwindApi.Domain.Entities;
@@ -31,7 +31,7 @@ public partial class NorthwindDbContext : DbContext
 
     public virtual DbSet<Customer> Customers { get; set; }
 
-    public virtual DbSet<Employees> Employees { get; set; }
+    public virtual DbSet<Employee> Employees { get; set; }
 
     public virtual DbSet<Invoices> Invoices { get; set; }
 
@@ -203,7 +203,7 @@ public partial class NorthwindDbContext : DbContext
                     });
         });
 
-        modelBuilder.Entity<Employees>(entity =>
+        modelBuilder.Entity<Employee>(entity =>
         {
             entity.HasKey(e => e.EmployeeId);
 
@@ -240,7 +240,7 @@ public partial class NorthwindDbContext : DbContext
                         .HasForeignKey("TerritoryId")
                         .OnDelete(DeleteBehavior.ClientSetNull)
                         .HasConstraintName("FK_EmployeeTerritories_Territories"),
-                    l => l.HasOne<Employees>().WithMany()
+                    l => l.HasOne<Employee>().WithMany()
                         .HasForeignKey("EmployeeId")
                         .OnDelete(DeleteBehavior.ClientSetNull)
                         .HasConstraintName("FK_EmployeeTerritories_Employees"),
