@@ -9,6 +9,9 @@ using Serilog;
 using Serilog.Sinks.MSSqlServer;
 using System.Text;
 using System.Threading.RateLimiting;
+using HealthChecks.UI.Client;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+
 
 var builder = WebApplication.CreateBuilder(args);
 var columnOptions = new ColumnOptions();
@@ -32,7 +35,7 @@ Log.Logger = new LoggerConfiguration()
             TableName = "Logs",
             AutoCreateSqlTable = true
         },
-        columnOptions: columnOptions) 
+        columnOptions: columnOptions)
     .CreateLogger();
 
 builder.Host.UseSerilog();
@@ -129,7 +132,7 @@ builder.Services.AddRateLimiter(options =>
         opt.QueueLimit = 0;
     });
 
-    
+
     options.OnRejected = async (context, cancellationToken) =>
     {
         context.HttpContext.Response.StatusCode = 429;
@@ -142,6 +145,23 @@ builder.Services.AddRateLimiter(options =>
         }, cancellationToken);
     };
 });
+builder.Services.AddHealthChecks()
+    .AddSqlServer(
+        connectionString: builder.Configuration.GetConnectionString("NorthwindConnection")!,
+        name: "sql-server",
+        tags: new[] { "db", "sql" })
+    .AddRedis(
+        redisConnectionString: builder.Configuration["Redis:ConnectionString"]!,
+        name: "redis",
+        tags: new[] { "cache", "redis" });
+
+
+builder.Services.AddHealthChecksUI(opt =>
+{
+    opt.SetEvaluationTimeInSeconds(30); // 30 saniyede bir kontrol
+    opt.AddHealthCheckEndpoint("NorthwindApi", "/health");
+})
+.AddInMemoryStorage();
 
 var app = builder.Build();
 app.UseRateLimiter();
@@ -157,6 +177,34 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Health Check endpoints
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+
+app.MapHealthChecks("/health/db", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("db"),
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+app.MapHealthChecks("/health/cache", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("cache"),
+    ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+});
+
+app.MapHealthChecksUI(options =>
+{
+    options.UIPath = "/health-ui";
+});
 
 app.MapControllers();
 
