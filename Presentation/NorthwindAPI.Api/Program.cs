@@ -1,13 +1,15 @@
-﻿using HealthChecks.UI.Client;
+﻿using Hangfire;
+using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using NorthwindApi.Application;
 using NorthwindApi.Persistence;
+using NorthwindAPI.Api.Filters;
 using NorthwindAPI.Api.Middleware;
 using Serilog;
 using Serilog.Sinks.MSSqlServer;
@@ -42,6 +44,13 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 
 builder.Host.UseSerilog();
+builder.Services.AddHangfire(config => config
+    .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+    .UseSimpleAssemblyNameTypeSerializer()
+    .UseRecommendedSerializerSettings()
+    .UseSqlServerStorage(builder.Configuration["Hangfire:ConnectionString"]));
+
+builder.Services.AddHangfireServer();
 
 builder.Services.AddControllers();
 
@@ -202,6 +211,10 @@ builder.Services.AddHealthChecksUI(opt =>
 
 var app = builder.Build();
 app.UseRateLimiter();
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAuthorizationFilter(app.Environment) }
+});
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<TokenBlacklistMiddleware>();
 app.UseSwagger();

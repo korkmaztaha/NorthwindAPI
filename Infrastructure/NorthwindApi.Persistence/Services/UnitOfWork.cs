@@ -35,6 +35,7 @@ namespace NorthwindApi.Persistence.Services
 
         public async Task CommitTransactionAsync(CancellationToken cancellationToken = default)
         {
+            if (_transaction == null) return;
             await _context.SaveChangesAsync(cancellationToken);
             await _transaction!.CommitAsync(cancellationToken);
             _transaction.Dispose(); 
@@ -43,6 +44,7 @@ namespace NorthwindApi.Persistence.Services
 
         public async Task RollbackTransactionAsync(CancellationToken cancellationToken = default)
         {
+            if (_transaction == null) return;
             await _transaction!.RollbackAsync(cancellationToken);
             _transaction.Dispose(); 
             _transaction = null;    

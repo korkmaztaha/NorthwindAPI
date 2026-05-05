@@ -7,6 +7,7 @@ using NorthwindApi.Application.Interfaces.Repositories;
 using NorthwindApi.Application.Interfaces.Services;
 using NorthwindApi.Persistence.BusinessRules;
 using NorthwindApi.Persistence.Contexts;
+using NorthwindApi.Persistence.Jobs;
 using NorthwindApi.Persistence.Repositories;
 using NorthwindApi.Persistence.Services;
 using NorthwindApi.Persistence.Services.EntityServices;
@@ -57,6 +58,8 @@ public static class DependencyInjection
             return ConnectionMultiplexer.Connect(config!);
         });
         services.AddScoped<ITokenBlacklistService, TokenBlacklistService>();
+        services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<IOrderNotificationJob, OrderNotificationJob>();
 
         return services;
     }
