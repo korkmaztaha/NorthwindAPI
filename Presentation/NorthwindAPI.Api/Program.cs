@@ -1,16 +1,19 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using HealthChecks.UI.Client;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using NorthwindApi.Application;
 using NorthwindApi.Persistence;
 using NorthwindAPI.Api.Middleware;
 using Serilog;
 using Serilog.Sinks.MSSqlServer;
+using System.Reflection;
 using System.Text;
 using System.Threading.RateLimiting;
-using HealthChecks.UI.Client;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -47,8 +50,42 @@ builder.Services.AddApplication();
 builder.Services.AddPersistence(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+});
+
+builder.Services.AddVersionedApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
+
 builder.Services.AddSwaggerGen(c =>
 {
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Northwind API",
+        Version = "v1",
+        Description = "Northwind veritabanı üzerine inşa edilmiş Clean Architecture API",
+        Contact = new OpenApiContact
+        {
+            Name = "Northwind API",
+            Email = "info@northwindapi.com"
+        }
+    });
+
+    // XML yorum dosyası
+    var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    c.IncludeXmlComments(xmlPath);
+
+    // Annotation desteği
+    c.EnableAnnotations();
+
+    // JWT
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -223,4 +260,3 @@ finally
     Log.CloseAndFlush();
 }
 
-app.Run();
