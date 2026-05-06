@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddScoped<ITokenBlacklistService, TokenBlacklistService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IOrderNotificationJob, OrderNotificationJob>();
+        services.AddScoped<IBasketService, BasketService>();
 
         return services;
     }
