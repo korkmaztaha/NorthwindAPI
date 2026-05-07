@@ -363,3 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 /Presentation/NorthwindAPI.Api/appsettings.json
 /Gateway/NorthwindApi.Gateway/appsettings.json
+/.env

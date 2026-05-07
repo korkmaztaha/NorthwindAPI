@@ -1,19 +1,82 @@
 version: '3.8'
 
 services:
+
   redis:
-    image: redis:7.2
-    container_name: redis
+    image: redis:alpine
+    container_name: northwind-redis
     ports:
       - "6379:6379"
     volumes:
-      - redis-data:/data
+      - redis_data:/data
     networks:
-      - northwind
+      - northwind-network
+
+  mongodb:
+    image: mongo:latest
+    container_name: northwind-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - northwind-network
+
+  northwind-api:
+    build:
+      context: .
+      dockerfile: Presentation/NorthwindAPI.Api/Dockerfile
+    container_name: northwind-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__NorthwindConnection=Server=192.168.1.105;Database=Northwind;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - ConnectionStrings__HangfireConnection=Server=192.168.1.105;Database=NorthwindHangfire;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True
+      - Redis__ConnectionString=redis:6379,abortConnect=false
+      - Redis__InstanceName=${REDIS_INSTANCE_NAME}
+      - MongoDB__ConnectionString=mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017
+      - MongoDB__DatabaseName=${MONGO_DATABASE}
+      - Jwt__SecretKey=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+      - Email__Host=${EMAIL_HOST}
+      - Email__Port=${EMAIL_PORT}
+      - Email__Username=${EMAIL_USERNAME}
+      - Email__Password=${EMAIL_PASSWORD}
+      - Email__FromEmail=${EMAIL_FROM}
+      - Email__FromName=${EMAIL_FROM_NAME}
+
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+      - mongodb
+    networks:
+      - northwind-network
+
+  northwind-gateway:
+    build:
+      context: .
+      dockerfile: Gateway/NorthwindApi.Gateway/Dockerfile
+    container_name: northwind-gateway
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Jwt__SecretKey=${JWT_SECRET_KEY}
+      - Jwt__Issuer=${JWT_ISSUER}
+      - Jwt__Audience=${JWT_AUDIENCE}
+    ports:
+      - "5000:5000"
+    depends_on:
+      - northwind-api
+    networks:
+      - northwind-network
 
 volumes:
-  redis-data:
+  redis_data:
+  mongodb_data:
 
 networks:
-  northwind:
+  northwind-network:
     driver: bridge
