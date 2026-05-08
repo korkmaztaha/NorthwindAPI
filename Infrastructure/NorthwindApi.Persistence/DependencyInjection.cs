@@ -61,6 +61,8 @@ public static class DependencyInjection
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IOrderNotificationJob, OrderNotificationJob>();
         services.AddScoped<IBasketService, BasketService>();
+        services.AddScoped<IOutboxService, OutboxService>();
+        services.AddScoped<OutboxProcessor>();
 
         return services;
     }

@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NorthwindApi.Application;
 using NorthwindApi.Persistence;
+using NorthwindApi.Persistence.Jobs;
 using NorthwindAPI.Api.Filters;
 using NorthwindAPI.Api.Middleware;
 using Serilog;
@@ -215,6 +216,17 @@ app.UseHangfireDashboard("/hangfire", new DashboardOptions
 {
     Authorization = new[] { new HangfireAuthorizationFilter(app.Environment) }
 });
+using (var scope = app.Services.CreateScope())
+{
+    var recurringJobManager = scope.ServiceProvider
+        .GetRequiredService<IRecurringJobManager>();
+
+    // Her 30 saniyede bir outbox mesajlarını işle
+    recurringJobManager.AddOrUpdate<OutboxProcessor>(
+        "outbox-processor",
+        job => job.ProcessAsync(),
+        "*/30 * * * * *");
+}
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<TokenBlacklistMiddleware>();
 app.UseSwagger();

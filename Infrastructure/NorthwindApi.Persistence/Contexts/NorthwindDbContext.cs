@@ -72,6 +72,7 @@ public partial class NorthwindDbContext : DbContext
     public virtual DbSet<Territories> Territories { get; set; }
 
     public DbSet<User> Users { get; set; }
+    public DbSet<OutboxMessage> OutboxMessages { get; set; }
 
     public DbSet<RefreshTokens> RefreshTokens { get; set; }
 

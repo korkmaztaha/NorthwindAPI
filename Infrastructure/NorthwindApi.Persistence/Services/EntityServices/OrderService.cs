@@ -1,5 +1,6 @@
 ﻿using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using NorthwindApi.Application.Events;
 using NorthwindApi.Application.Features.Orders.Commands.CreateOrder;
 using NorthwindApi.Application.Features.Orders.Queries.GetOrderDetail;
 using NorthwindApi.Application.Features.Orders.Queries.GetOrders;
@@ -23,19 +24,22 @@ namespace NorthwindApi.Persistence.Services.EntityServices
         private readonly IProductBusinessRules _productBusinessRules;
         private readonly IOrderBusinessRules _orderBusinessRules;
         private readonly IBackgroundJobClient _backgroundJobClient;
+        private readonly IOutboxService _outboxService;
 
         public OrderService(
         IUnitOfWork unitOfWork,
         ICustomerBusinessRules customerBusinessRules,
         IProductBusinessRules productBusinessRules,
         IOrderBusinessRules orderBusinessRules,
-        IBackgroundJobClient backgroundJobClient)
+        IBackgroundJobClient backgroundJobClient,
+        IOutboxService outboxService)
         {
             _unitOfWork = unitOfWork;
             _customerBusinessRules = customerBusinessRules;
             _productBusinessRules = productBusinessRules;
             _orderBusinessRules = orderBusinessRules;
             _backgroundJobClient = backgroundJobClient;
+            _outboxService = outboxService;
         }
 
         public async Task<List<GetOrdersQueryResponse>> GetAllAsync(
@@ -181,11 +185,10 @@ namespace NorthwindApi.Persistence.Services.EntityServices
             return await ProcessOrderAsync(request, products, cancellationToken);
         }
         private async Task<CreateOrderCommandResponse> ProcessOrderAsync(
-      CreateOrderCommand request,
-      List<Products> products,
-      CancellationToken cancellationToken)
+            CreateOrderCommand request,
+            List<Products> products,
+            CancellationToken cancellationToken)
         {
-           
             var customer = await _unitOfWork.Repository<Customer>()
                 .GetAll()
                 .FirstAsync(c => c.CustomerId == request.CustomerId, cancellationToken);
@@ -210,7 +213,7 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 };
 
                 await _unitOfWork.Repository<Orders>().AddAsync(order, cancellationToken);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                await _unitOfWork.SaveChangesAsync(cancellationToken); // OrderId almak için
 
                 var orderItems = new List<CreateOrderItemResponse>();
                 foreach (var item in request.Items)
@@ -240,14 +243,19 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                     });
                 }
 
-                await _unitOfWork.CommitTransactionAsync(cancellationToken);
+           
+                await _outboxService.AddMessageAsync(new OrderCreatedEvent
+                {
+                    OrderId = order.OrderId,
+                    CustomerId = customer.CustomerId,
+                    CompanyName = customer.CompanyName,
+                    CustomerEmail = $"{customer.CustomerId.ToLower()}@example.com",
+                    TotalAmount = orderItems.Sum(x => x.LineTotal),
+                    OrderDate = order.OrderDate!.Value
+                }, cancellationToken);
 
-               
-                _backgroundJobClient.Enqueue<IOrderNotificationJob>(job =>
-                    job.SendOrderConfirmationEmailAsync(
-                        order.OrderId,
-                        $"{customer.CustomerId.ToLower()}@example.com",
-                        customer.CompanyName));
+                
+                await _unitOfWork.CommitTransactionAsync(cancellationToken);
 
                 return new CreateOrderCommandResponse
                 {
@@ -264,7 +272,6 @@ namespace NorthwindApi.Persistence.Services.EntityServices
                 throw;
             }
         }
-
         public async Task<bool> DeleteAsync(int orderId, CancellationToken cancellationToken)
         {
             await _orderBusinessRules.OrderMustExistAsync(orderId, cancellationToken);
